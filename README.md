@@ -33,21 +33,6 @@ npm run db:setup   # migrate + seed
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
-
-## Demo logins
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@bajajdealership.in | changeme123 |
-| Miryalaguda | miryalaguda@bajajdealership.in | changeme123 |
-| Nalgonda | nalgonda@bajajdealership.in | changeme123 |
-| Suryapet | suryapet@bajajdealership.in | changeme123 |
-| Bhongir | bhongir@bajajdealership.in | changeme123 |
-| Kodad | kodad@bajajdealership.in | changeme123 |
-
-Change all passwords before production use.
-
 ## Tech stack
 
 - Next.js (App Router)
