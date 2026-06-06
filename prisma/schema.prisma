@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  BRANCH_MANAGER
+}
+
+enum ReportStatus {
+  SUBMITTED
+  REVIEWED
+}
+
+model Branch {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  city        String
+  createdAt   DateTime      @default(now())
+  users       User[]
+  reports     DailyReport[]
+  saleReports SaleReport[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         Role
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  reports      DailyReport[]
+  saleReports  SaleReport[]
+  createdAt    DateTime      @default(now())
+}
+
+model DailyReport {
+  id                String       @id @default(cuid())
+  date              DateTime
+  branchId          String
+  branch            Branch       @relation(fields: [branchId], references: [id])
+  submittedById     String
+  submittedBy       User         @relation(fields: [submittedById], references: [id])
+
+  vehiclesSold        Int          @default(0)
+  salesValue          Float        @default(0)
+  bookings            Int          @default(0)
+  pendingDeliveries   Int          @default(0)
+  testDrives          Int          @default(0)
+
+  serviceJobs         Int          @default(0)
+  serviceRevenue      Float        @default(0)
+
+  stockEntries        StockEntry[]
+
+  cashCollected       Float        @default(0)
+  pendingPayments     Float        @default(0)
+
+  staffPresent        Int          @default(0)
+  customerComplaints  Int          @default(0)
+
+  highlights          String?
+  issues              String?
+  notes               String?
+
+  status              ReportStatus @default(SUBMITTED)
+  reviewedAt          DateTime?
+  adminComment        String?
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@unique([branchId, date])
+}
+
+model StockEntry {
+  id               String      @id @default(cuid())
+  dailyReportId    String
+  dailyReport      DailyReport @relation(fields: [dailyReportId], references: [id], onDelete: Cascade)
+
+  modelName        String
+  modelVariant     String?
+
+  stockOnHand      Int         @default(0)
+  newStockReceived Int         @default(0)
+
+  @@unique([dailyReportId, modelName, modelVariant])
+}
+
+model SaleReport {
+  id                 String   @id @default(cuid())
+  branchId           String
+  branch             Branch   @relation(fields: [branchId], references: [id])
+  submittedById      String
+  submittedBy        User     @relation(fields: [submittedById], references: [id])
+
+  customerName       String
+  customerFatherName String
+  customerAddress    String
+
+  modelName          String
+  modelVariant       String?
+
+  totalAmount        Float
+  downPayment        Float
+  financeAmount      Float
+  financer           String
+
+  aadhaarImagePath   String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
