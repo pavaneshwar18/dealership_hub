@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { ReportForm } from "@/components/ReportForm";
 import { requireBranchManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { formatDateToISTString } from "@/lib/format";
 
 type EditReportPageProps = {
   params: Promise<{ id: string }>;
@@ -30,7 +31,7 @@ export default async function EditReportPage({ params }: EditReportPageProps) {
         </div>
         <ReportForm
           reportId={report.id}
-          initialDate={report.date.toISOString().slice(0, 10)}
+          initialDate={formatDateToISTString(report.date)}
           initialValues={{
             vehiclesSold: report.vehiclesSold,
             salesValue: report.salesValue,

@@ -4,7 +4,7 @@ import { ReportForm } from "@/components/ReportForm";
 import { StatCard } from "@/components/StatCard";
 import { requireBranchManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { formatDate, formatINR, todayIST } from "@/lib/format";
+import { formatDate, formatINR, todayIST, formatDateToISTString } from "@/lib/format";
 
 type DashboardPageProps = {
   searchParams: Promise<{ saved?: string }>;
@@ -31,7 +31,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     take: 7,
   });
 
-  const dateInput = today.toISOString().slice(0, 10);
+  const dateInput = formatDateToISTString(today);
 
   return (
     <div className="min-h-screen bg-slate-100">

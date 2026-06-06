@@ -32,3 +32,16 @@ export function startOfDayIST(date: Date): Date {
   ist.setHours(0, 0, 0, 0);
   return ist;
 }
+
+export function formatDateToISTString(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  const year = parts.find((p) => p.type === "year")?.value;
+  return `${year}-${month}-${day}`;
+}

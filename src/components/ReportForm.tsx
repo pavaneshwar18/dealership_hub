@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { VEHICLE_MODELS } from "@/lib/models";
 import type { DailyReportInput, StockEntryInput } from "@/lib/reports";
 
@@ -75,6 +76,7 @@ function Field({
   min = 0,
   step,
   placeholder,
+  disabled,
 }: {
   label: string;
   name: string;
@@ -84,6 +86,7 @@ function Field({
   min?: number;
   step?: string;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
@@ -97,8 +100,9 @@ function Field({
         min={type === "number" ? min : undefined}
         step={step}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={(event) => onChange(name, event.target.value)}
-        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-500"
       />
     </label>
   );
@@ -163,6 +167,41 @@ export function ReportForm({
     });
   }
 
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceLogged, setAttendanceLogged] = useState(false);
+
+  useEffect(() => {
+    if (!values.date) return;
+    let active = true;
+
+    async function checkAttendance() {
+      setAttendanceLoading(true);
+      try {
+        const res = await fetch(`/api/dashboard/attendance?date=${values.date}`);
+        const data = await res.json();
+        if (res.ok && active) {
+          const logged = data.some((item: any) => item.status !== null);
+          setAttendanceLogged(logged);
+          if (logged) {
+            const presentCount = data.filter((item: any) => item.status === "PRESENT").length;
+            setValues((curr) => ({ ...curr, staffPresent: presentCount }));
+          } else {
+            setValues((curr) => ({ ...curr, staffPresent: 0 }));
+          }
+        }
+      } catch (err) {
+        console.error("Error checking attendance for report:", err);
+      } finally {
+        if (active) setAttendanceLoading(false);
+      }
+    }
+
+    checkAttendance();
+    return () => {
+      active = false;
+    };
+  }, [values.date]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -224,7 +263,37 @@ export function ReportForm({
           <Field label="Service revenue (INR)" name="serviceRevenue" value={values.serviceRevenue} onChange={updateField} step="0.01" />
           <Field label="Cash collected (INR)" name="cashCollected" value={values.cashCollected} onChange={updateField} step="0.01" />
           <Field label="Pending payments (INR)" name="pendingPayments" value={values.pendingPayments} onChange={updateField} step="0.01" />
-          <Field label="Staff present" name="staffPresent" value={values.staffPresent} onChange={updateField} />
+          <div className="relative">
+            <Field
+              label="Staff present"
+              name="staffPresent"
+              value={values.staffPresent}
+              onChange={updateField}
+              disabled={true}
+            />
+            {attendanceLoading ? (
+              <span className="mt-1 block text-xs text-slate-500 animate-pulse">
+                Checking attendance...
+              </span>
+            ) : attendanceLogged ? (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                Logged via Attendance tab
+              </span>
+            ) : (
+              <div className="mt-1 text-xs text-amber-700 font-semibold space-y-1">
+                <span>⚠️ Please log attendance for this date first.</span>
+                <Link
+                  href="/dashboard/attendance"
+                  className="block text-blue-700 hover:underline"
+                >
+                  Log attendance &rarr;
+                </Link>
+              </div>
+            )}
+          </div>
           <Field label="Customer complaints" name="customerComplaints" value={values.customerComplaints} onChange={updateField} />
         </div>
       </section>
@@ -332,7 +401,7 @@ export function ReportForm({
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !attendanceLogged || attendanceLoading}
           className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"
         >
           {loading ? "Saving..." : reportId ? "Update report" : "Submit report"}

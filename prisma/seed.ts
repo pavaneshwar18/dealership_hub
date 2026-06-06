@@ -54,7 +54,17 @@ async function main() {
     });
   }
 
-  console.log("Seeded 5 branches, 1 admin, and 5 branch managers.");
+  // Seed mock staff for each branch
+  for (const branch of branches) {
+    // Clear existing staff so they are re-seeded with realistic base salaries
+    await prisma.staff.deleteMany({ where: { branchId: branch.id } });
+    await prisma.staff.createMany({
+      data: [
+      ],
+    });
+  }
+
+  console.log("Seeded 5 branches, 1 admin, 5 branch managers, and mock branch staff.");
   console.log("Default password for all accounts: changeme123");
 }
 

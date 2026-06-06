@@ -16,6 +16,7 @@ export function Navbar({ user }: NavbarProps) {
       ? [] // Navigation links moved to the left sidebar for admin layout
       : [
           { href: "/dashboard", label: "Today" },
+          { href: "/dashboard/attendance", label: "Attendance" },
           { href: "/dashboard/history", label: "History" },
           { href: "/dashboard/sales", label: "Sales" },
         ];

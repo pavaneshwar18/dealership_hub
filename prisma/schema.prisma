@@ -25,6 +25,7 @@ model Branch {
   users       User[]
   reports     DailyReport[]
   saleReports SaleReport[]
+  staff       Staff[]
 }
 
 model User {
@@ -116,4 +117,31 @@ model SaleReport {
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+model Staff {
+  id        String       @id @default(cuid())
+  name      String
+  role      String       // e.g. "Sales Consultant", "Service Tech", "Security"
+  salary    Float        @default(0)
+  active    Boolean      @default(true)
+  branchId  String
+  branch    Branch       @relation(fields: [branchId], references: [id])
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  
+  attendance Attendance[]
+}
+
+model Attendance {
+  id        String       @id @default(cuid())
+  date      DateTime
+  status    String       // "PRESENT", "ABSENT", "LEAVE"
+  notes     String?
+  staffId   String
+  staff     Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([staffId, date])
 }
