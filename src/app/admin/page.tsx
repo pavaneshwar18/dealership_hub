@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { StatCard } from "@/components/StatCard";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -46,9 +45,7 @@ export default async function AdminPage() {
   const pendingCount = branches.length - submittedCount;
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Navbar user={session} />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Admin overview</h1>
           <p className="mt-2 text-slate-500">
@@ -149,7 +146,6 @@ export default async function AdminPage() {
             </p>
           </section>
         ) : null}
-      </main>
-    </div>
+    </>
   );
 }

@@ -78,7 +78,7 @@ function Field({
 }: {
   label: string;
   name: string;
-  type?: "number" | "text";
+  type?: "number" | "text" | "date";
   value: string | number;
   onChange: (name: string, value: string) => void;
   min?: number;
@@ -208,7 +208,7 @@ export function ReportForm({
           <Field
             label="Report date"
             name="date"
-            type="text"
+            type="date"
             value={values.date}
             onChange={updateField}
           />

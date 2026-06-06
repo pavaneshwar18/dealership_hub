@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDate, formatINR } from "@/lib/format";
@@ -14,9 +13,7 @@ export default async function AdminReportsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Navbar user={session} />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">All reports</h1>
           <p className="mt-2 text-slate-500">Latest daily submissions from all five branches</p>
@@ -74,7 +71,6 @@ export default async function AdminReportsPage() {
             </tbody>
           </table>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

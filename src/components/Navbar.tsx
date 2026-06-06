@@ -13,11 +13,7 @@ export function Navbar({ user }: NavbarProps) {
 
   const links =
     user.role === "ADMIN"
-      ? [
-          { href: "/admin", label: "Overview" },
-          { href: "/admin/reports", label: "All Reports" },
-          { href: "/admin/sales", label: "Sales" },
-        ]
+      ? [] // Navigation links moved to the left sidebar for admin layout
       : [
           { href: "/dashboard", label: "Today" },
           { href: "/dashboard/history", label: "History" },
