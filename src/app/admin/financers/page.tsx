@@ -21,6 +21,8 @@ export default async function AdminFinancersPage() {
     totalAmount: s.totalAmount,
     financeAmount: s.financeAmount,
     financer: s.financer,
+    paymentType: s.paymentType,
+    paymentMode: s.paymentMode,
   }));
 
   return (

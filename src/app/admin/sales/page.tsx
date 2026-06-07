@@ -35,6 +35,10 @@ export default async function AdminSalesPage() {
     totalAmount: sale.totalAmount,
     financeAmount: sale.financeAmount,
     financer: sale.financer,
+    paymentType: sale.paymentType,
+    paymentMode: sale.paymentMode,
+    cashAmount: sale.cashAmount,
+    bankAmount: sale.bankAmount,
   }));
 
   const formattedBranches = branches.map((b) => ({

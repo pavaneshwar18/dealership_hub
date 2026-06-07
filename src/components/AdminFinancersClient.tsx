@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatINR } from "@/lib/format";
 
 type SaleItem = {
@@ -12,6 +12,8 @@ type SaleItem = {
   totalAmount: number;
   financeAmount: number;
   financer: string;
+  paymentType?: string;
+  paymentMode?: string;
 };
 
 type AdminFinancersClientProps = {
@@ -30,6 +32,14 @@ const CHART_COLORS = [
   "#6b7280", // gray
 ];
 
+function getChartColor(index: number): string {
+  if (index < CHART_COLORS.length) {
+    return CHART_COLORS[index];
+  }
+  const hue = Math.floor((index * 137.5) % 360);
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
 // Helper to determine Indian Financial Year (FY YYYY-YY) from date string YYYY-MM-DD
 function getFinancialYear(dateStr: string): string {
   const [yearStr, monthStr] = dateStr.split("-");
@@ -43,6 +53,10 @@ function getFinancialYear(dateStr: string): string {
 }
 
 export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   // Get current date string in IST timezone (YYYY-MM-DD)
   const currentISTDate = useMemo(() => {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -63,6 +77,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
   // Dashboard Filters State
   const [periodType, setPeriodType] = useState<"YEAR" | "MONTH">("YEAR");
   const [selectedPeriod, setSelectedPeriod] = useState(currentFinancialYear);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Toggle period type and reset default selections safely
   function handlePeriodTypeChange(type: "YEAR" | "MONTH") {
@@ -93,6 +108,10 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
   // Filter sales matching selected period
   const filteredSales = useMemo(() => {
     return initialSales.filter((s) => {
+      // Exclude Self / Cash payments strictly
+      const isSelf = s.paymentType === "Self" || s.financer.trim() === "Self" || !s.financer.trim();
+      if (isSelf) return false;
+
       if (periodType === "YEAR") {
         return getFinancialYear(s.createdAt) === selectedPeriod;
       } else {
@@ -105,7 +124,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
   const stats = useMemo(() => {
     const groups: Record<string, { count: number; financeAmount: number; totalAmount: number }> = {};
     filteredSales.forEach((s) => {
-      const name = s.financer.trim() || "Self / Cash";
+      const name = s.financer.trim();
       if (!groups[name]) {
         groups[name] = { count: 0, financeAmount: 0, totalAmount: 0 };
       }
@@ -132,7 +151,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
     const circumference = 314.16; // 2 * PI * 50
 
     return stats.map((stat, i) => {
-      const color = CHART_COLORS[i % CHART_COLORS.length];
+      const color = getChartColor(i);
       const strokeLength = (stat.percentage / 100) * circumference;
       const strokeDashoffset = -(accumulatedPercentage / 100) * circumference;
       accumulatedPercentage += stat.percentage;
@@ -158,10 +177,301 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
     return date.toLocaleString("en-US", { month: "long", year: "numeric" });
   }
 
+  const handleExportCSV = () => {
+    const headers = ["Financing Partner", "Units Financed", "Share (%)", "Total Financed (INR)", "Avg per Vehicle (INR)"];
+    const rows = stats.map((stat) => {
+      const avgFinance = stat.count > 0 ? stat.financeAmount / stat.count : 0;
+      return [
+        `"${stat.name.replace(/"/g, '""')}"`,
+        stat.count,
+        `${stat.percentage.toFixed(2)}%`,
+        stat.financeAmount,
+        avgFinance
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `financers_matrix_${selectedPeriod.toLowerCase().replace(/[\s-]/g, '_')}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    const pieChartSvgHtml = donutSlices.map(slice => `
+      <circle
+        cx="60"
+        cy="60"
+        r="50"
+        fill="transparent"
+        stroke="${slice.color}"
+        stroke-width="12"
+        stroke-dasharray="${slice.strokeDasharray}"
+        stroke-dashoffset="${slice.strokeDashoffset}"
+      />
+    `).join("");
+
+    const legendHtml = donutSlices.map(slice => `
+      <div class="legend-item">
+        <span class="legend-color" style="background-color: ${slice.color}"></span>
+        <span class="legend-name">${slice.name}</span>
+        <span class="legend-val">${slice.count} units (${slice.percentage.toFixed(1)}%)</span>
+      </div>
+    `).join("");
+
+    const barChartHtml = stats.map((stat, i) => {
+      const color = getChartColor(i);
+      const widthPercent = `${(stat.count / maxCount) * 100}%`;
+      return `
+        <div class="bar-container">
+          <div class="bar-header">
+            <span>${stat.name}</span>
+            <strong>${stat.count} units</strong>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: ${widthPercent}; background-color: ${color};"></div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const tableRowsHtml = stats.map((stat) => {
+      const avgFinance = stat.count > 0 ? stat.financeAmount / stat.count : 0;
+      return `
+        <tr>
+          <td><strong>${stat.name}</strong></td>
+          <td class="text-center">${stat.count}</td>
+          <td class="text-center"><span class="badge">${stat.percentage.toFixed(1)}%</span></td>
+          <td class="text-right">₹${stat.financeAmount.toLocaleString("en-IN")}</td>
+          <td class="text-right">₹${avgFinance.toLocaleString("en-IN")}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "absolute";
+    iframe.style.width = "0px";
+    iframe.style.height = "0px";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.write(`
+      <html>
+        <head>
+          <title>Financers Matrix Report</title>
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 40px;
+            }
+            .header {
+              margin-bottom: 24px;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 16px;
+            }
+            h1 {
+              font-size: 24px;
+              margin: 0 0 6px 0;
+              color: #0f172a;
+            }
+            .meta {
+              font-size: 13px;
+              color: #64748b;
+              margin: 0;
+            }
+            .charts-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 24px;
+              margin-bottom: 32px;
+            }
+            .card {
+              border: 1px solid #e2e8f0;
+              border-radius: 16px;
+              padding: 20px;
+              background-color: #fff;
+            }
+            .card-title {
+              font-size: 14px;
+              font-weight: 700;
+              color: #0f172a;
+              margin: 0 0 4px 0;
+            }
+            .card-sub {
+              font-size: 11px;
+              color: #64748b;
+              margin: 0 0 16px 0;
+            }
+            .donut-container {
+              display: flex;
+              align-items: center;
+              gap: 24px;
+            }
+            .donut-svg {
+              width: 120px;
+              height: 120px;
+              transform: rotate(-90deg);
+              flex-shrink: 0;
+            }
+            .donut-legend {
+              flex-grow: 1;
+            }
+            .legend-item {
+              display: flex;
+              align-items: center;
+              font-size: 11px;
+              margin-bottom: 6px;
+            }
+            .legend-color {
+              width: 10px;
+              height: 10px;
+              border-radius: 50%;
+              margin-right: 8px;
+              display: inline-block;
+              flex-shrink: 0;
+            }
+            .legend-name {
+              flex-grow: 1;
+              color: #475569;
+            }
+            .legend-val {
+              font-weight: 600;
+              color: #0f172a;
+              margin-left: 12px;
+            }
+            .bar-container {
+              margin-bottom: 12px;
+            }
+            .bar-header {
+              display: flex;
+              justify-content: space-between;
+              font-size: 11px;
+              margin-bottom: 4px;
+              color: #475569;
+              font-weight: 600;
+            }
+            .bar-track {
+              height: 10px;
+              background-color: #f1f5f9;
+              border-radius: 9999px;
+              overflow: hidden;
+            }
+            .bar-fill {
+              height: 100%;
+              border-radius: 9999px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 12px;
+              margin-top: 16px;
+            }
+            th {
+              background-color: #f8fafc;
+              color: #475569;
+              font-weight: 600;
+              text-align: left;
+              border-bottom: 2px solid #e2e8f0;
+            }
+            th, td {
+              padding: 10px 12px;
+              border-bottom: 1px solid #f1f5f9;
+            }
+            td.text-center { text-align: center; }
+            td.text-right { text-align: right; }
+            th.text-center { text-align: center; }
+            th.text-right { text-align: right; }
+            .badge {
+              background-color: #eff6ff;
+              color: #1d4ed8;
+              padding: 2px 8px;
+              border-radius: 9999px;
+              font-weight: 600;
+              font-size: 11px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Financers Matrix Report</h1>
+            <p class="meta">
+              Generated on ${new Date().toLocaleDateString("en-IN", { dateStyle: "long" })}<br />
+              Period: ${formatPeriodLabel(selectedPeriod)}
+            </p>
+          </div>
+
+          <div class="charts-grid">
+            <div class="card">
+              <h3 class="card-title">Share of Total Units</h3>
+              <p class="card-sub">Financing volume share</p>
+              <div class="donut-container">
+                <svg class="donut-svg" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="transparent" stroke="#f1f5f9" stroke-width="12" />
+                  ${pieChartSvgHtml}
+                </svg>
+                <div class="donut-legend">
+                  ${legendHtml}
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Financed Units Volume</h3>
+              <p class="card-sub">Units provider comparison</p>
+              <div>
+                ${barChartHtml}
+              </div>
+            </div>
+          </div>
+
+          <h3>Comparison Matrix Table</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Financing Partner</th>
+                <th class="text-center">Units Financed</th>
+                <th class="text-center">Share (%)</th>
+                <th class="text-right">Total Financed (INR)</th>
+                <th class="text-right">Avg per Vehicle (INR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml || '<tr><td colspan="5" class="text-center">No financing records found.</td></tr>'}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      document.body.removeChild(iframe);
+    }, 500);
+  };
+
+  if (!mounted) {
+    return (
+      <div className="flex h-96 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="text-slate-500 font-medium animate-pulse">Loading analytics...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Time Frame Selectors */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-1 self-start">
           <button
             onClick={() => handlePeriodTypeChange("YEAR")}
@@ -185,26 +495,86 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
           </button>
         </div>
 
-        <label className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-slate-700">Select Period:</span>
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
-          >
-            {periodType === "YEAR"
-              ? yearOptions.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))
-              : monthOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {formatPeriodLabel(m)}
-                  </option>
-                ))}
-          </select>
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-700">Select Period:</span>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+            >
+              {periodType === "YEAR"
+                ? yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))
+                : monthOptions.map((m) => (
+                    <option key={m} value={m}>
+                      {formatPeriodLabel(m)}
+                    </option>
+                  ))}
+            </select>
+          </label>
+
+          <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <button
+                onClick={() => setExportOpen(!exportOpen)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+              >
+                <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Export Reports
+                <svg
+                  className={`h-4 w-4 text-slate-400 transition-transform ${exportOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {exportOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setExportOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-100 bg-white py-1 shadow-lg ring-1 ring-black/5 z-20 origin-top-right transition-all">
+                    <button
+                      onClick={() => {
+                        handleExportCSV();
+                        setExportOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download as CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleExportPDF();
+                        setExportOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download as PDF
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Visual Analytics Charts Panel */}
@@ -263,7 +633,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
             </div>
             <div className="py-4 space-y-4">
               {stats.map((stat, i) => {
-                const color = CHART_COLORS[i % CHART_COLORS.length];
+                const color = getChartColor(i);
                 const widthPercent = `${(stat.count / maxCount) * 100}%`;
 
                 return (

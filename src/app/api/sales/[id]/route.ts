@@ -51,6 +51,9 @@ export async function PUT(request: Request, context: RouteContext) {
 
   const formData = await request.formData();
 
+  const dateStr = formData.get("date") as string | null;
+  const createdAt = dateStr ? new Date(dateStr) : undefined;
+
   const customerName = (formData.get("customerName") as string) || existing.customerName;
   const customerFatherName =
     (formData.get("customerFatherName") as string) || existing.customerFatherName;
@@ -69,6 +72,26 @@ export async function PUT(request: Request, context: RouteContext) {
     ? Number(formData.get("financeAmount")) || 0
     : existing.financeAmount;
   const financer = (formData.get("financer") as string) || existing.financer;
+  const paymentType = formData.has("paymentType")
+    ? (formData.get("paymentType") as string) || "Finance"
+    : existing.paymentType;
+  const paymentMode = formData.has("paymentMode")
+    ? (formData.get("paymentMode") as string) || "Cash"
+    : existing.paymentMode;
+  let cashAmount = formData.has("cashAmount")
+    ? Number(formData.get("cashAmount")) || 0
+    : existing.cashAmount;
+  let bankAmount = formData.has("bankAmount")
+    ? Number(formData.get("bankAmount")) || 0
+    : existing.bankAmount;
+
+  if (paymentMode === "Cash") {
+    cashAmount = downPayment;
+    bankAmount = 0;
+  } else if (paymentMode === "Bank Transfer") {
+    cashAmount = 0;
+    bankAmount = downPayment;
+  }
 
   // Handle Aadhaar image replacement
   let aadhaarImagePath = existing.aadhaarImagePath;
@@ -105,6 +128,9 @@ export async function PUT(request: Request, context: RouteContext) {
     aadhaarImagePath = `aadhaar/${filename}`;
   }
 
+  const finalFinancer = paymentType === "Self" ? "Self" : financer;
+  const finalFinanceAmount = paymentType === "Self" ? 0 : financeAmount;
+
   const report = await prisma.saleReport.update({
     where: { id },
     data: {
@@ -115,9 +141,14 @@ export async function PUT(request: Request, context: RouteContext) {
       modelVariant,
       totalAmount,
       downPayment,
-      financeAmount,
-      financer,
+      financeAmount: finalFinanceAmount,
+      financer: finalFinancer,
+      paymentType,
+      paymentMode,
+      cashAmount,
+      bankAmount,
       aadhaarImagePath,
+      ...(createdAt ? { createdAt } : {}),
     },
   });
 

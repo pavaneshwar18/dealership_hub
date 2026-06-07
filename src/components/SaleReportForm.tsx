@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { VEHICLE_MODELS } from "@/lib/models";
+import { formatDateToISTString } from "@/lib/format";
 
 type SaleReportFormProps = {
   reportId?: string;
@@ -18,11 +19,25 @@ type SaleReportFormProps = {
     financeAmount?: number;
     financer?: string;
     aadhaarImagePath?: string | null;
+    createdAt?: Date | string | null;
+    paymentType?: string;
+    paymentMode?: string;
+    cashAmount?: number;
+    bankAmount?: number;
   };
 };
 
 export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleReportFormProps) {
   const router = useRouter();
+  
+  const defaultDateStr = formatDateToISTString(new Date());
+  const initialDateStr = initialValues?.createdAt
+    ? typeof initialValues.createdAt === "string"
+      ? initialValues.createdAt.slice(0, 10)
+      : formatDateToISTString(new Date(initialValues.createdAt))
+    : defaultDateStr;
+
+  const [date, setDate] = useState(initialDateStr);
   const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
   const [customerFatherName, setCustomerFatherName] = useState(
     initialValues?.customerFatherName ?? "",
@@ -34,6 +49,41 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
   const [downPayment, setDownPayment] = useState(initialValues?.downPayment ?? 0);
   const [financeAmount, setFinanceAmount] = useState(initialValues?.financeAmount ?? 0);
   const [financer, setFinancer] = useState(initialValues?.financer ?? "");
+  const [paymentType, setPaymentType] = useState(initialValues?.paymentType ?? "Finance");
+  const [paymentMode, setPaymentMode] = useState(initialValues?.paymentMode ?? "Cash");
+  const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount ?? 0);
+  const [bankAmount, setBankAmount] = useState(initialValues?.bankAmount ?? 0);
+
+  function handleCashAmountChange(val: number) {
+    setCashAmount(val);
+    setDownPayment(val + bankAmount);
+  }
+
+  function handleBankAmountChange(val: number) {
+    setBankAmount(val);
+    setDownPayment(cashAmount + val);
+  }
+
+  function handlePaymentModeChange(mode: string) {
+    setPaymentMode(mode);
+    if (mode === "Cash") {
+      setCashAmount(downPayment);
+      setBankAmount(0);
+    } else if (mode === "Bank Transfer") {
+      setCashAmount(0);
+      setBankAmount(downPayment);
+    } else if (mode === "Both") {
+      if (cashAmount + bankAmount !== downPayment) {
+        const half = Math.round((downPayment / 2) * 100) / 100;
+        setCashAmount(half);
+        setBankAmount(downPayment - half);
+      }
+    }
+  }
+  useEffect(() => {
+    setTotalAmount(paymentType === "Self" ? downPayment : downPayment + financeAmount);
+  }, [downPayment, financeAmount, paymentType]);
+
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [aadhaarPreview, setAadhaarPreview] = useState<string | null>(
     initialValues?.aadhaarImagePath
@@ -90,7 +140,7 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
     setLoading(true);
     setError("");
 
-    if (!customerName || !customerFatherName || !customerAddress || !modelName || !financer) {
+    if (!customerName || !customerFatherName || !customerAddress || !modelName || (paymentType !== "Self" && !financer)) {
       setError("Please fill all required fields");
       setLoading(false);
       return;
@@ -110,8 +160,13 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
     formData.set("modelVariant", modelVariant);
     formData.set("totalAmount", String(totalAmount));
     formData.set("downPayment", String(downPayment));
-    formData.set("financeAmount", String(financeAmount));
-    formData.set("financer", financer);
+    formData.set("financeAmount", paymentType === "Self" ? "0" : String(financeAmount));
+    formData.set("financer", paymentType === "Self" ? "Self" : financer);
+    formData.set("paymentType", paymentType);
+    formData.set("paymentMode", paymentMode);
+    formData.set("cashAmount", paymentMode === "Cash" ? String(downPayment) : paymentMode === "Bank Transfer" ? "0" : String(cashAmount));
+    formData.set("bankAmount", paymentMode === "Bank Transfer" ? String(downPayment) : paymentMode === "Cash" ? "0" : String(bankAmount));
+    formData.set("date", date);
 
     if (aadhaarFile) {
       formData.set("aadhaarImage", aadhaarFile);
@@ -143,8 +198,20 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Customer Information */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-5 text-lg font-semibold text-slate-900">Customer Information</h2>
+        <h2 className="mb-5 text-lg font-semibold text-slate-900">Customer &amp; Report Details</h2>
         <div className="grid gap-4 md:grid-cols-2">
+          <label className="block md:col-span-2">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Report Date <span className="text-rose-500">*</span>
+            </span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+              required
+            />
+          </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">
               Customer Name <span className="text-rose-500">*</span>
@@ -183,6 +250,35 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
               placeholder="Full address"
               required
             />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Payment Type <span className="text-rose-500">*</span>
+            </span>
+            <select
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+              required
+            >
+              <option value="Finance">Finance</option>
+              <option value="Self">Self (Full Payment)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Payment Mode <span className="text-rose-500">*</span>
+            </span>
+            <select
+              value={paymentMode}
+              onChange={(e) => handlePaymentModeChange(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+              required
+            >
+              <option value="Cash">Cash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Both">Both (Cash &amp; Bank Transfer)</option>
+            </select>
           </label>
         </div>
       </section>
@@ -246,49 +342,106 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
               min={0}
               step="0.01"
               value={totalAmount}
-              onChange={(e) => setTotalAmount(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+              readOnly
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-500 outline-none ring-blue-500 focus:ring-2 bg-slate-50 cursor-not-allowed"
             />
+            <span className="mt-1 block text-xs text-slate-500">
+              Calculated automatically as Down Payment + Finance Amount
+            </span>
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">
-              Down Payment (₹) <span className="text-rose-500">*</span>
+              Amount Paid (Down Payment) (₹) <span className="text-rose-500">*</span>
             </span>
             <input
               type="number"
               min={0}
               step="0.01"
               value={downPayment}
-              onChange={(e) => setDownPayment(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+              onChange={(e) => {
+                if (paymentMode !== "Both") {
+                  setDownPayment(Number(e.target.value));
+                  if (paymentMode === "Cash") {
+                    setCashAmount(Number(e.target.value));
+                  } else {
+                    setBankAmount(Number(e.target.value));
+                  }
+                }
+              }}
+              readOnly={paymentMode === "Both"}
+              className={`w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 ${
+                paymentMode === "Both" ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""
+              }`}
             />
+            {paymentMode === "Both" && (
+              <span className="mt-1 block text-xs text-slate-500">
+                Calculated automatically from Cash + Bank portions
+              </span>
+            )}
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">
-              Finance Amount (₹) <span className="text-rose-500">*</span>
-            </span>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={financeAmount}
-              onChange={(e) => setFinanceAmount(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">
-              Financer <span className="text-rose-500">*</span>
-            </span>
-            <input
-              type="text"
-              value={financer}
-              onChange={(e) => setFinancer(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
-              placeholder="Name of financing institution"
-              required
-            />
-          </label>
+
+          {paymentMode === "Both" && (
+            <>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Cash Portion (₹) <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={cashAmount}
+                  onChange={(e) => handleCashAmountChange(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Bank Transfer Portion (₹) <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={bankAmount}
+                  onChange={(e) => handleBankAmountChange(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                  required
+                />
+              </label>
+            </>
+          )}
+          {paymentType === "Finance" && (
+            <>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Finance Amount (₹) <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={financeAmount}
+                  onChange={(e) => setFinanceAmount(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Financer <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  type="text"
+                  value={financer}
+                  onChange={(e) => setFinancer(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                  placeholder="Name of financing institution"
+                  required
+                />
+              </label>
+            </>
+          )}
         </div>
       </section>
 

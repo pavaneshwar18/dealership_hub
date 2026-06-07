@@ -13,6 +13,9 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
 
+  const dateStr = formData.get("date") as string | null;
+  const createdAt = dateStr ? new Date(dateStr) : undefined;
+
   const customerName = formData.get("customerName") as string | null;
   const customerFatherName = formData.get("customerFatherName") as string | null;
   const customerAddress = formData.get("customerAddress") as string | null;
@@ -22,10 +25,22 @@ export async function POST(request: Request) {
   const downPayment = Number(formData.get("downPayment")) || 0;
   const financeAmount = Number(formData.get("financeAmount")) || 0;
   const financer = formData.get("financer") as string | null;
+  const paymentType = (formData.get("paymentType") as string | null) || "Finance";
+  const paymentMode = (formData.get("paymentMode") as string | null) || "Cash";
+  let cashAmount = Number(formData.get("cashAmount")) || 0;
+  let bankAmount = Number(formData.get("bankAmount")) || 0;
 
-  if (!customerName || !customerFatherName || !customerAddress || !modelName || !financer) {
+  if (paymentMode === "Cash") {
+    cashAmount = downPayment;
+    bankAmount = 0;
+  } else if (paymentMode === "Bank Transfer") {
+    cashAmount = 0;
+    bankAmount = downPayment;
+  }
+
+  if (!customerName || !customerFatherName || !customerAddress || !modelName || (paymentType !== "Self" && !financer)) {
     return NextResponse.json(
-      { error: "Customer name, father's name, address, model, and financer are required" },
+      { error: "Customer name, father's name, address, model, and financing details are required" },
       { status: 400 },
     );
   }
@@ -57,6 +72,9 @@ export async function POST(request: Request) {
     aadhaarImagePath = `aadhaar/${filename}`;
   }
 
+  const finalFinancer = paymentType === "Self" ? "Self" : (financer || "Finance");
+  const finalFinanceAmount = paymentType === "Self" ? 0 : financeAmount;
+
   const saleReport = await prisma.saleReport.create({
     data: {
       branchId: session.branchId,
@@ -68,9 +86,14 @@ export async function POST(request: Request) {
       modelVariant: modelVariant || null,
       totalAmount,
       downPayment,
-      financeAmount,
-      financer,
+      financeAmount: finalFinanceAmount,
+      financer: finalFinancer,
+      paymentType,
+      paymentMode,
+      cashAmount,
+      bankAmount,
       aadhaarImagePath,
+      ...(createdAt ? { createdAt } : {}),
     },
   });
 

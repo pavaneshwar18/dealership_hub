@@ -60,6 +60,11 @@ export default async function AdminSaleDetailPage({
             financeAmount: sale.financeAmount,
             financer: sale.financer,
             aadhaarImagePath: sale.aadhaarImagePath,
+            createdAt: sale.createdAt,
+            paymentType: sale.paymentType,
+            paymentMode: sale.paymentMode,
+            cashAmount: sale.cashAmount,
+            bankAmount: sale.bankAmount,
           }}
         />
       </div>
@@ -134,9 +139,25 @@ export default async function AdminSaleDetailPage({
             <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.financeAmount)}</p>
           </div>
         </div>
-        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Financer</p>
-          <p className="mt-1 text-sm font-medium text-slate-900">{sale.financer}</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Payment Type</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{sale.paymentType === "Self" ? "Self (Full Payment)" : "Finance"}</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Payment Mode</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {sale.paymentMode === "Both"
+                ? `Both (Cash: ${formatINR(sale.cashAmount)} + Bank: ${formatINR(sale.bankAmount)})`
+                : sale.paymentMode}
+            </p>
+          </div>
+          {sale.paymentType === "Finance" && (
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Financer</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{sale.financer}</p>
+            </div>
+          )}
         </div>
       </section>
 

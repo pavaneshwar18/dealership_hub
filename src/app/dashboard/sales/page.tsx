@@ -64,7 +64,12 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                 sales.map((sale) => (
                   <tr key={sale.id} className="border-t border-slate-100">
                     <td className="px-4 py-3">{formatDate(sale.createdAt)}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{sale.customerName}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-900">{sale.customerName}</div>
+                      <div className="text-xs text-slate-500">
+                        {sale.paymentType === "Self" ? "Self" : sale.financer || "Finance"} • {sale.paymentMode === "Both" ? `Both (Cash: ${formatINR(sale.cashAmount)} + Bank: ${formatINR(sale.bankAmount)})` : sale.paymentMode || "Cash"}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       {formatModelDisplay(sale.modelName, sale.modelVariant)}
                     </td>
