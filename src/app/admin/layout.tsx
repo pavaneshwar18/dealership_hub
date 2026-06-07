@@ -64,6 +64,21 @@ export default async function AdminLayout({
                 />
               </svg>
             </SidebarLink>
+            <SidebarLink href="/admin/inventory" label="Stock Inventory">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                />
+              </svg>
+            </SidebarLink>
             <SidebarLink href="/admin/staff" label="Staff Directory">
               <svg
                 className="h-5 w-5"

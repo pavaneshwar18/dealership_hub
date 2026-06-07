@@ -152,6 +152,32 @@ export async function PUT(request: Request, context: RouteContext) {
     },
   });
 
+  const vehicleStockId = formData.get("vehicleStockId") as string | null;
+  if (formData.has("vehicleStockId")) {
+    const oldStock = await prisma.vehicleStock.findFirst({
+      where: { saleReportId: id },
+    });
+    if (oldStock && oldStock.id !== vehicleStockId) {
+      await prisma.vehicleStock.update({
+        where: { id: oldStock.id },
+        data: {
+          status: "AVAILABLE",
+          saleReportId: null,
+        },
+      });
+    }
+
+    if (vehicleStockId) {
+      await prisma.vehicleStock.update({
+        where: { id: vehicleStockId },
+        data: {
+          status: "SOLD",
+          saleReportId: id,
+        },
+      });
+    }
+  }
+
   return NextResponse.json(report);
 }
 
@@ -175,6 +201,20 @@ export async function DELETE(_request: Request, context: RouteContext) {
     } catch {
       // ignore
     }
+  }
+
+  // Reset vehicle stock status to AVAILABLE
+  const linkedStock = await prisma.vehicleStock.findFirst({
+    where: { saleReportId: id },
+  });
+  if (linkedStock) {
+    await prisma.vehicleStock.update({
+      where: { id: linkedStock.id },
+      data: {
+        status: "AVAILABLE",
+        saleReportId: null,
+      },
+    });
   }
 
   await prisma.saleReport.delete({ where: { id } });

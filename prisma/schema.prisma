@@ -18,14 +18,15 @@ enum ReportStatus {
 }
 
 model Branch {
-  id          String        @id @default(cuid())
-  name        String        @unique
-  city        String
-  createdAt   DateTime      @default(now())
-  users       User[]
-  reports     DailyReport[]
-  saleReports SaleReport[]
-  staff       Staff[]
+  id           String         @id @default(cuid())
+  name         String         @unique
+  city         String
+  createdAt    DateTime       @default(now())
+  users        User[]
+  reports      DailyReport[]
+  saleReports  SaleReport[]
+  staff        Staff[]
+  vehicleStock VehicleStock[]
 }
 
 model User {
@@ -120,6 +121,8 @@ model SaleReport {
   cashAmount         Float    @default(0)
   bankAmount         Float    @default(0)
 
+  vehicleStock       VehicleStock?
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -149,4 +152,31 @@ model Attendance {
   updatedAt DateTime     @updatedAt
 
   @@unique([staffId, date])
+}
+
+enum StockStatus {
+  AVAILABLE
+  SOLD
+}
+
+model VehicleStock {
+  id            String      @id @default(cuid())
+  chassisNumber String      @unique
+  engineNumber  String      @unique
+  modelName     String
+  modelVariant  String?
+  color         String?
+  status        StockStatus @default(AVAILABLE)
+  receivedDate  DateTime    @default(now())
+
+  // Location
+  branchId      String
+  branch        Branch      @relation(fields: [branchId], references: [id])
+
+  // Sales Link
+  saleReportId  String?     @unique
+  saleReport    SaleReport? @relation(fields: [saleReportId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }

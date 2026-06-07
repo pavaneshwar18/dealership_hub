@@ -75,6 +75,8 @@ export async function POST(request: Request) {
   const finalFinancer = paymentType === "Self" ? "Self" : (financer || "Finance");
   const finalFinanceAmount = paymentType === "Self" ? 0 : financeAmount;
 
+  const vehicleStockId = formData.get("vehicleStockId") as string | null;
+
   const saleReport = await prisma.saleReport.create({
     data: {
       branchId: session.branchId,
@@ -96,6 +98,16 @@ export async function POST(request: Request) {
       ...(createdAt ? { createdAt } : {}),
     },
   });
+
+  if (vehicleStockId) {
+    await prisma.vehicleStock.update({
+      where: { id: vehicleStockId },
+      data: {
+        status: "SOLD",
+        saleReportId: saleReport.id,
+      },
+    });
+  }
 
   return NextResponse.json({ id: saleReport.id });
 }

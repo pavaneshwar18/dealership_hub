@@ -19,6 +19,7 @@ export function Navbar({ user }: NavbarProps) {
           { href: "/dashboard/attendance", label: "Attendance" },
           { href: "/dashboard/history", label: "History" },
           { href: "/dashboard/sales", label: "Sales" },
+          { href: "/dashboard/inventory", label: "Stock" },
         ];
 
   return (

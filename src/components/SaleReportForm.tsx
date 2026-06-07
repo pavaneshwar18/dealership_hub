@@ -8,6 +8,7 @@ import { formatDateToISTString } from "@/lib/format";
 type SaleReportFormProps = {
   reportId?: string;
   redirectUrl?: string;
+  branchId?: string;
   initialValues?: {
     customerName?: string;
     customerFatherName?: string;
@@ -24,10 +25,18 @@ type SaleReportFormProps = {
     paymentMode?: string;
     cashAmount?: number;
     bankAmount?: number;
+    vehicleStockId?: string;
+    vehicleStock?: {
+      id: string;
+      chassisNumber: string;
+      engineNumber: string;
+      modelName: string;
+      modelVariant: string | null;
+    };
   };
 };
 
-export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleReportFormProps) {
+export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues }: SaleReportFormProps) {
   const router = useRouter();
   
   const defaultDateStr = formatDateToISTString(new Date());
@@ -53,6 +62,37 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
   const [paymentMode, setPaymentMode] = useState(initialValues?.paymentMode ?? "Cash");
   const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount ?? 0);
   const [bankAmount, setBankAmount] = useState(initialValues?.bankAmount ?? 0);
+
+  const [availableStock, setAvailableStock] = useState<any[]>([]);
+  const [vehicleStockId, setVehicleStockId] = useState(
+    initialValues?.vehicleStockId ?? initialValues?.vehicleStock?.id ?? ""
+  );
+
+  useEffect(() => {
+    async function fetchStock() {
+      try {
+        const url = `/api/inventory?branchId=${branchId || ""}&status=AVAILABLE`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          // If editing and has initial linked stock, prepend/append it if not already present in data
+          if (initialValues?.vehicleStock) {
+            const exists = data.some((item: any) => item.id === initialValues.vehicleStock?.id);
+            if (!exists) {
+              data.unshift({
+                ...initialValues.vehicleStock,
+                status: "AVAILABLE",
+              });
+            }
+          }
+          setAvailableStock(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch stock", err);
+      }
+    }
+    fetchStock();
+  }, [branchId, initialValues?.vehicleStock]);
 
   function handleCashAmountChange(val: number) {
     setCashAmount(val);
@@ -101,6 +141,20 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
     setModelVariant("");
   }
 
+  function handleChassisChange(stockId: string) {
+    setVehicleStockId(stockId);
+    if (!stockId) {
+      setModelName("");
+      setModelVariant("");
+      return;
+    }
+    const matched = availableStock.find((item) => item.id === stockId);
+    if (matched) {
+      setModelName(matched.modelName);
+      setModelVariant(matched.modelVariant ?? "");
+    }
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -140,8 +194,8 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
     setLoading(true);
     setError("");
 
-    if (!customerName || !customerFatherName || !customerAddress || !modelName || (paymentType !== "Self" && !financer)) {
-      setError("Please fill all required fields");
+    if (!customerName || !customerFatherName || !customerAddress || !modelName || (paymentType !== "Self" && !financer) || !vehicleStockId) {
+      setError("Please fill all required fields, including Vehicle Chassis / Engine Number");
       setLoading(false);
       return;
     }
@@ -167,6 +221,7 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
     formData.set("cashAmount", paymentMode === "Cash" ? String(downPayment) : paymentMode === "Bank Transfer" ? "0" : String(cashAmount));
     formData.set("bankAmount", paymentMode === "Bank Transfer" ? String(downPayment) : paymentMode === "Cash" ? "0" : String(bankAmount));
     formData.set("date", date);
+    formData.set("vehicleStockId", vehicleStockId);
 
     if (aadhaarFile) {
       formData.set("aadhaarImage", aadhaarFile);
@@ -287,6 +342,30 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-5 text-lg font-semibold text-slate-900">Vehicle Model</h2>
         <div className="grid gap-4 md:grid-cols-2">
+          <label className="block md:col-span-2">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Vehicle Chassis / Engine Number <span className="text-rose-500">*</span>
+            </span>
+            <select
+              value={vehicleStockId}
+              onChange={(e) => handleChassisChange(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+              required
+            >
+              <option value="">Select Available Vehicle</option>
+              {availableStock.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.chassisNumber} / {item.engineNumber} ({item.modelName}{item.modelVariant ? ` - ${item.modelVariant}` : ""})
+                </option>
+              ))}
+            </select>
+            {availableStock.length === 0 && (
+              <span className="mt-1.5 block text-xs text-rose-500 font-medium">
+                No vehicles available in branch inventory. Please contact admin to transfer stock.
+              </span>
+            )}
+          </label>
+
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">
               Model <span className="text-rose-500">*</span>
@@ -294,7 +373,10 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
             <select
               value={modelName}
               onChange={(e) => handleModelChange(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+              disabled={!!vehicleStockId}
+              className={`w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white ${
+                vehicleStockId ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""
+              }`}
               required
             >
               <option value="">Select model</option>
@@ -304,6 +386,11 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
                 </option>
               ))}
             </select>
+            {vehicleStockId && (
+              <span className="mt-1 block text-xs text-slate-500">
+                Model is determined by the selected vehicle stock.
+              </span>
+            )}
           </label>
 
           {hasVariants && (
@@ -314,7 +401,10 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
               <select
                 value={modelVariant}
                 onChange={(e) => setModelVariant(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                disabled={!!vehicleStockId}
+                className={`w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white ${
+                  vehicleStockId ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""
+                }`}
                 required
               >
                 <option value="">Select {selectedModel?.variantLabel?.toLowerCase()}</option>
@@ -324,6 +414,11 @@ export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleRep
                   </option>
                 ))}
               </select>
+              {vehicleStockId && (
+                <span className="mt-1 block text-xs text-slate-500">
+                  Variant is determined by the selected vehicle stock.
+                </span>
+              )}
             </label>
           )}
         </div>

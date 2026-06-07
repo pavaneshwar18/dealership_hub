@@ -22,7 +22,7 @@ export default async function AdminSaleDetailPage({
 
   const sale = await prisma.saleReport.findUnique({
     where: { id },
-    include: { branch: true, submittedBy: true },
+    include: { branch: true, submittedBy: true, vehicleStock: true },
   });
 
   if (!sale) {
@@ -48,6 +48,7 @@ export default async function AdminSaleDetailPage({
         </div>
         <SaleReportForm
           reportId={sale.id}
+          branchId={sale.branchId}
           redirectUrl={`/admin/sales/${sale.id}`}
           initialValues={{
             customerName: sale.customerName,
@@ -65,6 +66,14 @@ export default async function AdminSaleDetailPage({
             paymentMode: sale.paymentMode,
             cashAmount: sale.cashAmount,
             bankAmount: sale.bankAmount,
+            vehicleStockId: sale.vehicleStock?.id || "",
+            vehicleStock: sale.vehicleStock ? {
+              id: sale.vehicleStock.id,
+              chassisNumber: sale.vehicleStock.chassisNumber,
+              engineNumber: sale.vehicleStock.engineNumber,
+              modelName: sale.vehicleStock.modelName,
+              modelVariant: sale.vehicleStock.modelVariant,
+            } : undefined,
           }}
         />
       </div>
@@ -127,9 +136,21 @@ export default async function AdminSaleDetailPage({
             </p>
           </div>
           <div className="rounded-xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Amount</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Price</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.totalAmount)}</p>
           </div>
+          {sale.vehicleStock && (
+            <>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Chassis Number</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 font-mono">{sale.vehicleStock.chassisNumber}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Engine Number</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 font-mono">{sale.vehicleStock.engineNumber}</p>
+              </div>
+            </>
+          )}
           <div className="rounded-xl bg-slate-50 px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Down Payment</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.downPayment)}</p>

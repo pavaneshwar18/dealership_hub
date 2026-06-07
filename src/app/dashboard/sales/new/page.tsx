@@ -15,7 +15,7 @@ export default async function NewSalePage() {
             Record a vehicle sale for {session.branchName} branch.
           </p>
         </div>
-        <SaleReportForm />
+        <SaleReportForm branchId={session.branchId!} />
       </main>
     </div>
   );
