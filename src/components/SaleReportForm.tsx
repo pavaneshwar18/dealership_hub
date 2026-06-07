@@ -6,6 +6,7 @@ import { VEHICLE_MODELS } from "@/lib/models";
 
 type SaleReportFormProps = {
   reportId?: string;
+  redirectUrl?: string;
   initialValues?: {
     customerName?: string;
     customerFatherName?: string;
@@ -20,7 +21,7 @@ type SaleReportFormProps = {
   };
 };
 
-export function SaleReportForm({ reportId, initialValues }: SaleReportFormProps) {
+export function SaleReportForm({ reportId, redirectUrl, initialValues }: SaleReportFormProps) {
   const router = useRouter();
   const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
   const [customerFatherName, setCustomerFatherName] = useState(
@@ -130,7 +131,11 @@ export function SaleReportForm({ reportId, initialValues }: SaleReportFormProps)
       return;
     }
 
-    router.push("/dashboard/sales?saved=1");
+    if (redirectUrl) {
+      router.push(redirectUrl);
+    } else {
+      router.push("/dashboard/sales?saved=1");
+    }
     router.refresh();
   }
 

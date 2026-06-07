@@ -94,6 +94,26 @@ export default async function AdminLayout({
                 />
               </svg>
             </SidebarLink>
+            <SidebarLink href="/admin/financers" label="Financers Matrix">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11 3.055A9.003 9.003 0 1020.95 12h-9.005V3.055z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+                />
+              </svg>
+            </SidebarLink>
             <SidebarLink href="/admin/users" label="User Credentials">
               <svg
                 className="h-5 w-5"

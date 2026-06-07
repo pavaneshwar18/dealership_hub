@@ -38,7 +38,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PUT(request: Request, context: RouteContext) {
   const session = await getSession();
-  if (!session || session.role !== "BRANCH_MANAGER" || !session.branchId) {
+  if (!session || session.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -47,10 +47,6 @@ export async function PUT(request: Request, context: RouteContext) {
 
   if (!existing) {
     return NextResponse.json({ error: "Sale report not found" }, { status: 404 });
-  }
-
-  if (existing.branchId !== session.branchId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const formData = await request.formData();
@@ -130,7 +126,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   const session = await getSession();
-  if (!session || session.role !== "BRANCH_MANAGER" || !session.branchId) {
+  if (!session || session.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -139,10 +135,6 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   if (!existing) {
     return NextResponse.json({ error: "Sale report not found" }, { status: 404 });
-  }
-
-  if (existing.branchId !== session.branchId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Delete Aadhaar image file if exists

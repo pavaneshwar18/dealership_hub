@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { SaleReportForm } from "@/components/SaleReportForm";
 import { requireBranchManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDate, formatINR } from "@/lib/format";
@@ -9,48 +8,15 @@ import { formatModelDisplay } from "@/lib/models";
 
 type SaleDetailPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string }>;
 };
 
-export default async function SaleDetailPage({ params, searchParams }: SaleDetailPageProps) {
+export default async function SaleDetailPage({ params }: SaleDetailPageProps) {
   const session = await requireBranchManager();
   const { id } = await params;
-  const { edit } = await searchParams;
 
   const sale = await prisma.saleReport.findUnique({ where: { id } });
   if (!sale || sale.branchId !== session.branchId) {
     notFound();
-  }
-
-  const isEditing = edit === "1";
-
-  if (isEditing) {
-    return (
-      <div className="min-h-screen bg-slate-100">
-        <Navbar user={session} />
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900">Edit Sale Report</h1>
-            <p className="mt-2 text-slate-500">Update this sale record.</p>
-          </div>
-          <SaleReportForm
-            reportId={sale.id}
-            initialValues={{
-              customerName: sale.customerName,
-              customerFatherName: sale.customerFatherName,
-              customerAddress: sale.customerAddress,
-              modelName: sale.modelName,
-              modelVariant: sale.modelVariant,
-              totalAmount: sale.totalAmount,
-              downPayment: sale.downPayment,
-              financeAmount: sale.financeAmount,
-              financer: sale.financer,
-              aadhaarImagePath: sale.aadhaarImagePath,
-            }}
-          />
-        </main>
-      </div>
-    );
   }
 
   return (
@@ -63,12 +29,6 @@ export default async function SaleDetailPage({ params, searchParams }: SaleDetai
             <p className="mt-2 text-slate-500">Recorded on {formatDate(sale.createdAt)}</p>
           </div>
           <div className="flex gap-3">
-            <Link
-              href={`/dashboard/sales/${sale.id}?edit=1`}
-              className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
-            >
-              Edit
-            </Link>
             <Link
               href="/dashboard/sales"
               className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
