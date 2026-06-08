@@ -29,6 +29,7 @@ model Branch {
   vehicleStock VehicleStock[]
   cashSheets   CashSheet[]
   expenses     DealershipExpense[]
+  exchangeVehicles ExchangeVehicle[]
 }
 
 model User {
@@ -109,26 +110,45 @@ model SaleReport {
   cashAmount         Float    @default(0)
   bankAmount         Float    @default(0)
 
+  hasExchange        Boolean  @default(false)
+  exchangeAmount     Float    @default(0)
+  exchangeModel      String?
+  exchangeYear       String?
+  hasHandLoan        Boolean  @default(false)
+  handLoanAmount     Float    @default(0)
+
+  exchangeVehicle    ExchangeVehicle?
   vehicleStock       VehicleStock?
+
+  salesExecutiveId   String?
+  salesExecutive     Staff?   @relation(fields: [salesExecutiveId], references: [id], onDelete: SetNull)
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
 
 model Staff {
-  id           String              @id @default(cuid())
-  name         String
-  role         String              // e.g. "Sales Consultant", "Service Tech", "Security"
-  salary       Float               @default(0)
-  active       Boolean             @default(true)
-  branchId     String
-  branch       Branch              @relation(fields: [branchId], references: [id])
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id               String              @id @default(cuid())
+  name             String
+  role             String              // e.g. "Sales Consultant", "Service Tech", "Security"
+  salary           Float               @default(0)
+  active           Boolean             @default(true)
+  branchId         String
+  branch           Branch              @relation(fields: [branchId], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   
+  email            String?
+  phone            String?
+  address          String?
+  emergencyContact String?
+  dob              String?
+  photoPath        String?
+
   attendance   Attendance[]
   expenses     DealershipExpense[]
   transactions CashTransaction[]
+  saleReports  SaleReport[]
 }
 
 model Attendance {
@@ -222,3 +242,22 @@ model DealershipExpense {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
+
+model ExchangeVehicle {
+  id              String        @id @default(cuid())
+  modelName       String
+  yearModel       String
+  valuation       Float
+  status          String        @default("AVAILABLE") // AVAILABLE, SOLD
+  receivedDate    DateTime      @default(now())
+
+  branchId        String
+  branch          Branch        @relation(fields: [branchId], references: [id])
+
+  saleReportId    String        @unique
+  saleReport      SaleReport    @relation(fields: [saleReportId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+

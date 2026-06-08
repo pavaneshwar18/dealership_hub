@@ -9,6 +9,7 @@ type SaleReportFormProps = {
   reportId?: string;
   redirectUrl?: string;
   branchId?: string;
+  staff?: { id: string; name: string }[];
   initialValues?: {
     customerName?: string;
     customerFatherName?: string;
@@ -33,10 +34,17 @@ type SaleReportFormProps = {
       modelName: string;
       modelVariant: string | null;
     };
+    hasExchange?: boolean;
+    exchangeAmount?: number;
+    exchangeModel?: string | null;
+    exchangeYear?: string | null;
+    hasHandLoan?: boolean;
+    handLoanAmount?: number;
+    salesExecutiveId?: string | null;
   };
 };
 
-export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues }: SaleReportFormProps) {
+export function SaleReportForm({ reportId, redirectUrl, branchId, staff, initialValues }: SaleReportFormProps) {
   const router = useRouter();
   
   const defaultDateStr = formatDateToISTString(new Date());
@@ -62,6 +70,16 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues 
   const [paymentMode, setPaymentMode] = useState(initialValues?.paymentMode ?? "Cash");
   const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount ?? 0);
   const [bankAmount, setBankAmount] = useState(initialValues?.bankAmount ?? 0);
+
+  const [hasExchange, setHasExchange] = useState<boolean>(initialValues?.hasExchange ?? false);
+  const [exchangeAmount, setExchangeAmount] = useState<number>(initialValues?.exchangeAmount ?? 0);
+  const [exchangeModel, setExchangeModel] = useState<string>(initialValues?.exchangeModel ?? "");
+  const [exchangeYear, setExchangeYear] = useState<string>(initialValues?.exchangeYear ?? "");
+  const [hasHandLoan, setHasHandLoan] = useState<boolean>(initialValues?.hasHandLoan ?? false);
+  const [handLoanAmount, setHandLoanAmount] = useState<number>(initialValues?.handLoanAmount ?? 0);
+  const [salesExecutiveId, setSalesExecutiveId] = useState<string>(initialValues?.salesExecutiveId ?? "");
+
+  const staffList = staff || [];
 
   const [availableStock, setAvailableStock] = useState<any[]>([]);
   const [vehicleStockId, setVehicleStockId] = useState(
@@ -121,8 +139,11 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues 
     }
   }
   useEffect(() => {
-    setTotalAmount(paymentType === "Self" ? downPayment : downPayment + financeAmount);
-  }, [downPayment, financeAmount, paymentType]);
+    const base = paymentType === "Self" ? downPayment : downPayment + financeAmount;
+    const exAmt = hasExchange ? exchangeAmount : 0;
+    const hlAmt = hasHandLoan ? handLoanAmount : 0;
+    setTotalAmount(base + exAmt + hlAmt);
+  }, [downPayment, financeAmount, paymentType, hasExchange, exchangeAmount, hasHandLoan, handLoanAmount]);
 
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [aadhaarPreview, setAadhaarPreview] = useState<string | null>(
@@ -194,8 +215,8 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues 
     setLoading(true);
     setError("");
 
-    if (!customerName || !customerFatherName || !customerAddress || !modelName || (paymentType !== "Self" && !financer) || !vehicleStockId) {
-      setError("Please fill all required fields, including Vehicle Chassis / Engine Number");
+    if (!customerName || !customerFatherName || !customerAddress || !modelName || (paymentType !== "Self" && !financer) || !vehicleStockId || !salesExecutiveId) {
+      setError("Please fill all required fields, including Vehicle Stock and Sales Executive");
       setLoading(false);
       return;
     }
@@ -221,7 +242,14 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues 
     formData.set("cashAmount", paymentMode === "Cash" ? String(downPayment) : paymentMode === "Bank Transfer" ? "0" : String(cashAmount));
     formData.set("bankAmount", paymentMode === "Bank Transfer" ? String(downPayment) : paymentMode === "Cash" ? "0" : String(bankAmount));
     formData.set("date", date);
+    formData.set("hasExchange", String(hasExchange));
+    formData.set("exchangeAmount", String(hasExchange ? exchangeAmount : 0));
+    formData.set("exchangeModel", hasExchange ? exchangeModel : "");
+    formData.set("exchangeYear", hasExchange ? exchangeYear : "");
+    formData.set("hasHandLoan", String(hasHandLoan));
+    formData.set("handLoanAmount", String(hasHandLoan ? handLoanAmount : 0));
     formData.set("vehicleStockId", vehicleStockId);
+    formData.set("salesExecutiveId", salesExecutiveId);
 
     if (aadhaarFile) {
       formData.set("aadhaarImage", aadhaarFile);
@@ -333,6 +361,24 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues 
               <option value="Cash">Cash</option>
               <option value="Bank Transfer">Bank Transfer</option>
               <option value="Both">Both (Cash &amp; Bank Transfer)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Sales Executive <span className="text-rose-500">*</span>
+            </span>
+            <select
+              value={salesExecutiveId}
+              onChange={(e) => setSalesExecutiveId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+              required
+            >
+              <option value="">Select Sales Executive</option>
+              {staffList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -537,6 +583,110 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, initialValues 
               </label>
             </>
           )}
+
+          {/* Exchange Vehicle Section */}
+          <div className="block md:col-span-2 border-t border-slate-100 pt-4 mt-2">
+            <h3 className="text-sm font-semibold text-slate-950 mb-4">Vehicle Exchange Details</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">Vehicle Exchange?</span>
+                <select
+                  value={hasExchange ? "true" : "false"}
+                  onChange={(e) => {
+                    const isYes = e.target.value === "true";
+                    setHasExchange(isYes);
+                    if (!isYes) {
+                      setExchangeAmount(0);
+                      setExchangeModel("");
+                      setExchangeYear("");
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+                >
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </label>
+
+              {hasExchange && (
+                <>
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-slate-700">Exchange Model *</span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Pulsar 150, Activa 5G"
+                      value={exchangeModel}
+                      onChange={(e) => setExchangeModel(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                      required={hasExchange}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-slate-700">Exchange Year Model *</span>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2018, 2020"
+                      value={exchangeYear}
+                      onChange={(e) => setExchangeYear(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                      required={hasExchange}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-slate-700">Exchange Valuation Amount (₹) *</span>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={exchangeAmount || ""}
+                      onChange={(e) => setExchangeAmount(Number(e.target.value))}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                      required={hasExchange}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Hand Loan Section */}
+          <div className="block md:col-span-2 border-t border-slate-100 pt-4 mt-2">
+            <h3 className="text-sm font-semibold text-slate-905 mb-4">Hand Loan Details</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">Hand Loan?</span>
+                <select
+                  value={hasHandLoan ? "true" : "false"}
+                  onChange={(e) => {
+                    const isYes = e.target.value === "true";
+                    setHasHandLoan(isYes);
+                    if (!isYes) {
+                      setHandLoanAmount(0);
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+                >
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </label>
+
+              {hasHandLoan && (
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Hand Loan Amount (₹) *</span>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={handLoanAmount || ""}
+                    onChange={(e) => setHandLoanAmount(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                    required={hasHandLoan}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 

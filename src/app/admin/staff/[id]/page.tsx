@@ -103,6 +103,12 @@ export default async function AdminStaffDetailPage({ params }: AdminStaffDetailP
     createdAt: staff.createdAt.toISOString(),
     branchName: staff.branch.name,
     branchId: staff.branchId,
+    email: staff.email,
+    phone: staff.phone,
+    address: staff.address,
+    emergencyContact: staff.emergencyContact,
+    dob: staff.dob,
+    photoPath: staff.photoPath,
   };
 
   const attendanceStats = {

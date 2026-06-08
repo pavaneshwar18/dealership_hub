@@ -75,7 +75,16 @@ export async function POST(request: Request) {
   const finalFinancer = paymentType === "Self" ? "Self" : (financer || "Finance");
   const finalFinanceAmount = paymentType === "Self" ? 0 : financeAmount;
 
+  const hasExchange = formData.get("hasExchange") === "true";
+  const exchangeAmount = hasExchange ? (Number(formData.get("exchangeAmount")) || 0) : 0;
+  const exchangeModel = hasExchange ? (formData.get("exchangeModel") as string | null) : null;
+  const exchangeYear = hasExchange ? (formData.get("exchangeYear") as string | null) : null;
+
+  const hasHandLoan = formData.get("hasHandLoan") === "true";
+  const handLoanAmount = hasHandLoan ? (Number(formData.get("handLoanAmount")) || 0) : 0;
+
   const vehicleStockId = formData.get("vehicleStockId") as string | null;
+  const salesExecutiveId = formData.get("salesExecutiveId") as string | null;
 
   const saleReport = await prisma.saleReport.create({
     data: {
@@ -95,6 +104,22 @@ export async function POST(request: Request) {
       cashAmount,
       bankAmount,
       aadhaarImagePath,
+      hasExchange,
+      exchangeAmount,
+      exchangeModel,
+      exchangeYear,
+      hasHandLoan,
+      handLoanAmount,
+      salesExecutiveId: salesExecutiveId || null,
+      exchangeVehicle: hasExchange ? {
+        create: {
+          modelName: exchangeModel || "Unknown Model",
+          yearModel: exchangeYear || "Unknown Year",
+          valuation: exchangeAmount,
+          branchId: session.branchId,
+          status: "AVAILABLE",
+        }
+      } : undefined,
       ...(createdAt ? { createdAt } : {}),
     },
   });

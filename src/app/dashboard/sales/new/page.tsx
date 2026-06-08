@@ -1,9 +1,24 @@
 import { Navbar } from "@/components/Navbar";
 import { SaleReportForm } from "@/components/SaleReportForm";
 import { requireBranchManager } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
 export default async function NewSalePage() {
   const session = await requireBranchManager();
+
+  // Fetch active staff members for this branch to assign as Sales Executive
+  const staff = await prisma.staff.findMany({
+    where: {
+      branchId: session.branchId!,
+      active: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const formattedStaff = staff.map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -15,7 +30,7 @@ export default async function NewSalePage() {
             Record a vehicle sale for {session.branchName} branch.
           </p>
         </div>
-        <SaleReportForm branchId={session.branchId!} />
+        <SaleReportForm branchId={session.branchId!} staff={formattedStaff} />
       </main>
     </div>
   );

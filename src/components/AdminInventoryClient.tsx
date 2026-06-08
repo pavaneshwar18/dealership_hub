@@ -23,18 +23,34 @@ type BranchItem = {
   name: string;
 };
 
+type ExchangeItem = {
+  id: string;
+  modelName: string;
+  yearModel: string;
+  valuation: number;
+  status: string;
+  receivedDate: string; // YYYY-MM-DD
+  branchId: string;
+  branchName: string;
+  saleReportId: string;
+  tradedInFrom: string;
+};
+
 type AdminInventoryClientProps = {
   initialStock: StockItem[];
+  initialExchangeStock: ExchangeItem[];
   branches: BranchItem[];
 };
 
-export function AdminInventoryClient({ initialStock, branches }: AdminInventoryClientProps) {
+export function AdminInventoryClient({ initialStock, initialExchangeStock, branches }: AdminInventoryClientProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const [stock, setStock] = useState<StockItem[]>(initialStock);
+  const [exchangeStock, setExchangeStock] = useState<ExchangeItem[]>(initialExchangeStock);
+  const [activeTab, setActiveTab] = useState<"new" | "exchange">("new");
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState<string | null>(null); // tracks id of item currently updating
 
@@ -239,12 +255,73 @@ export function AdminInventoryClient({ initialStock, branches }: AdminInventoryC
     );
   }
 
+  async function handleExchangeTransfer(itemId: string, destinationBranchId: string) {
+    setLoading(itemId);
+    try {
+      const res = await fetch(`/api/exchange-vehicles/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchId: destinationBranchId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        triggerAlert("Transfer Failed", data.error ?? "Failed to transfer exchange vehicle");
+        return;
+      }
+
+      setExchangeStock((prev) =>
+        prev.map((s) => (s.id === itemId ? { ...s, branchId: data.branchId, branchName: data.branch.name } : s))
+      );
+    } catch {
+      triggerAlert("Transfer Failed", "Unable to process transfer at this time");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function executeExchangeDelete(itemId: string) {
+    setLoading(itemId);
+    try {
+      const res = await fetch(`/api/exchange-vehicles/${itemId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        triggerAlert("Delete Failed", data.error ?? "Failed to delete item");
+        return;
+      }
+
+      setExchangeStock((prev) => prev.filter((s) => s.id !== itemId));
+    } catch {
+      triggerAlert("Delete Failed", "Failed to delete exchange vehicle due to a connection error.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  function handleExchangeDelete(itemId: string) {
+    triggerConfirm(
+      "Delete Exchange Vehicle",
+      "Are you sure you want to delete this exchange vehicle from stock inventory? This action cannot be undone.",
+      () => executeExchangeDelete(itemId)
+    );
+  }
+
+  // Filtered Exchange Stock List for Display
+  const filteredExchangeStock = exchangeStock;
+
   // List of unique models dynamically from stock to feed model selector
   const modelOptions = useMemo(() => {
     const models = new Set<string>();
-    stock.forEach((s) => models.add(s.modelName));
+    if (activeTab === "new") {
+      stock.forEach((s) => models.add(s.modelName));
+    } else {
+      exchangeStock.forEach((s) => models.add(s.modelName));
+    }
     return Array.from(models).sort();
-  }, [stock]);
+  }, [stock, exchangeStock, activeTab]);
 
   if (!mounted) {
     return (
@@ -262,20 +339,56 @@ export function AdminInventoryClient({ initialStock, branches }: AdminInventoryC
           <h1 className="text-3xl font-bold text-slate-900">Stock Inventory</h1>
           <p className="mt-2 text-slate-500">Track showroom available stock, arrival aging, and branch allocations</p>
         </div>
+        {activeTab === "new" && (
+          <button
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              setFormError("");
+              setFormSuccess("");
+            }}
+            className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 self-start transition shadow-sm"
+          >
+            {showAddForm ? "Hide Intake Panel" : "+ Register Stock Invoice"}
+          </button>
+        )}
+      </div>
+
+      {/* Tab Switcher */}
+      <div className="flex border-b border-slate-200">
         <button
           onClick={() => {
-            setShowAddForm(!showAddForm);
-            setFormError("");
-            setFormSuccess("");
+            setActiveTab("new");
+            setFilterStatus("AVAILABLE");
+            setFilterModel("ALL");
+            setSearchQuery("");
           }}
-          className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 self-start transition shadow-sm"
+          className={`border-b-2 px-6 py-3 text-sm font-semibold transition ${
+            activeTab === "new"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
         >
-          {showAddForm ? "Hide Intake Panel" : "+ Register Stock Invoice"}
+          New Vehicles
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("exchange");
+            setFilterStatus("AVAILABLE");
+            setFilterModel("ALL");
+            setSearchQuery("");
+          }}
+          className={`border-b-2 px-6 py-3 text-sm font-semibold transition ${
+            activeTab === "exchange"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
+        >
+          Exchange Vehicles
         </button>
       </div>
 
       {/* Register Stock Form Panel */}
-      {showAddForm && (
+      {activeTab === "new" && showAddForm && (
         <form onSubmit={handleAddStock} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6 transition-all duration-300">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-lg font-bold text-slate-900">New Vehicle Intake (Miryalaguda Depot)</h2>
@@ -377,194 +490,292 @@ export function AdminInventoryClient({ initialStock, branches }: AdminInventoryC
         </form>
       )}
 
-
-
       {/* Filter Control Bar */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Branch Location</span>
-          <select
-            value={filterBranchId}
-            onChange={(e) => setFilterBranchId(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
-          >
-            <option value="ALL">All Branches</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </label>
+      {activeTab === "new" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Branch Location</span>
+            <select
+              value={filterBranchId}
+              onChange={(e) => setFilterBranchId(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+            >
+              <option value="ALL">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stock Status</span>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
-          >
-            <option value="AVAILABLE">Available</option>
-            <option value="SOLD">Sold</option>
-            <option value="ALL">All Statuses</option>
-          </select>
-        </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stock Status</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+            >
+              <option value="AVAILABLE">Available</option>
+              <option value="SOLD">Sold</option>
+              <option value="ALL">All Statuses</option>
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Vehicle Model</span>
-          <select
-            value={filterModel}
-            onChange={(e) => setFilterModel(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
-          >
-            <option value="ALL">All Models</option>
-            {modelOptions.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Vehicle Model</span>
+            <select
+              value={filterModel}
+              onChange={(e) => setFilterModel(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+            >
+              <option value="ALL">All Models</option>
+              {modelOptions.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aging Bracket</span>
-          <select
-            value={filterAging}
-            onChange={(e) => setFilterAging(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
-          >
-            <option value="ALL">All Stock Ages</option>
-            <option value="0-30">New Arrival (0-30 Days)</option>
-            <option value="30-60">Moderate (30-60 Days)</option>
-            <option value="60-90">Attention (60-90 Days)</option>
-            <option value="90+">Aging Risk (90+ Days)</option>
-          </select>
-        </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aging Bracket</span>
+            <select
+              value={filterAging}
+              onChange={(e) => setFilterAging(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+            >
+              <option value="ALL">All Stock Ages</option>
+              <option value="0-30">New Arrival (0-30 Days)</option>
+              <option value="30-60">Moderate (30-60 Days)</option>
+              <option value="60-90">Attention (60-90 Days)</option>
+              <option value="90+">Aging Risk (90+ Days)</option>
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Search Code</span>
-          <input
-            type="text"
-            placeholder="Chassis / Engine"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-          />
-        </label>
-      </div>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Search Code</span>
+            <input
+              type="text"
+              placeholder="Chassis / Engine"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
+            />
+          </label>
+        </div>
+      )}
 
-      {/* Inventory Table List */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
-            <tr>
-              <th className="px-4 py-3.5 font-semibold w-16">S.No.</th>
-              <th className="px-4 py-3.5 font-semibold">Intake Date</th>
-              <th className="px-4 py-3.5 font-semibold">Age (Days)</th>
-              <th className="px-4 py-3.5 font-semibold">Model / Variant</th>
-              <th className="px-4 py-3.5 font-semibold">Chassis Number</th>
-              <th className="px-4 py-3.5 font-semibold">Engine Number</th>
-              <th className="px-4 py-3.5 font-semibold">Current Branch / Allocation</th>
-              <th className="px-4 py-3.5 font-semibold">Status</th>
-              <th className="px-4 py-3.5 font-semibold text-right">Delete</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filteredStock.length === 0 ? (
+      {activeTab === "new" ? (
+        /* Inventory Table List */
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                  No stock items match your criteria.
-                </td>
+                <th className="px-4 py-3.5 font-semibold w-16">S.No.</th>
+                <th className="px-4 py-3.5 font-semibold">Intake Date</th>
+                <th className="px-4 py-3.5 font-semibold">Age (Days)</th>
+                <th className="px-4 py-3.5 font-semibold">Model / Variant</th>
+                <th className="px-4 py-3.5 font-semibold">Chassis Number</th>
+                <th className="px-4 py-3.5 font-semibold">Engine Number</th>
+                <th className="px-4 py-3.5 font-semibold">Current Branch / Allocation</th>
+                <th className="px-4 py-3.5 font-semibold">Status</th>
+                <th className="px-4 py-3.5 font-semibold text-right">Delete</th>
               </tr>
-            ) : (
-              filteredStock.map((item, index) => {
-                const ageDays = calculateDaysOld(item.receivedDate);
-                
-                // Color badges for aging stock
-                let ageBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
-                if (ageDays > 90) {
-                  ageBadgeClass = "bg-rose-50 text-rose-700 border-rose-100 animate-pulse";
-                } else if (ageDays > 60) {
-                  ageBadgeClass = "bg-orange-50 text-orange-700 border-orange-100";
-                } else if (ageDays > 30) {
-                  ageBadgeClass = "bg-amber-50 text-amber-700 border-amber-100";
-                }
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredStock.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                    No stock items match your criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredStock.map((item, index) => {
+                  const ageDays = calculateDaysOld(item.receivedDate);
+                  
+                  // Color badges for aging stock
+                  let ageBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
+                  if (ageDays > 90) {
+                    ageBadgeClass = "bg-rose-50 text-rose-700 border-rose-100 animate-pulse";
+                  } else if (ageDays > 60) {
+                    ageBadgeClass = "bg-orange-50 text-orange-700 border-orange-100";
+                  } else if (ageDays > 30) {
+                    ageBadgeClass = "bg-amber-50 text-amber-700 border-amber-100";
+                  }
 
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-4 py-4 text-slate-600 font-medium">{index + 1}</td>
-                    <td className="px-4 py-4 text-slate-600">{item.receivedDate.slice(0, 10)}</td>
-                    <td className="px-4 py-4">
-                      {item.status === "AVAILABLE" ? (
-                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${ageBadgeClass}`}>
-                          {ageDays} Days
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="font-semibold text-slate-900">{item.modelName}</div>
-                      <div className="text-xs text-slate-500">{item.modelVariant || "Standard"}</div>
-                    </td>
-                    <td className="px-4 py-4 font-mono font-medium text-slate-800">{item.chassisNumber}</td>
-                    <td className="px-4 py-4 font-mono text-slate-600">{item.engineNumber}</td>
-                    <td className="px-4 py-4 text-slate-600">
-                      {item.status === "AVAILABLE" ? (
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={item.branchId}
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-4 py-4 text-slate-600 font-medium">{index + 1}</td>
+                      <td className="px-4 py-4 text-slate-600">{item.receivedDate.slice(0, 10)}</td>
+                      <td className="px-4 py-4">
+                        {item.status === "AVAILABLE" ? (
+                          <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${ageBadgeClass}`}>
+                            {ageDays} Days
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="font-semibold text-slate-900">{item.modelName}</div>
+                        <div className="text-xs text-slate-500">{item.modelVariant || "Standard"}</div>
+                      </td>
+                      <td className="px-4 py-4 font-mono font-medium text-slate-800">{item.chassisNumber}</td>
+                      <td className="px-4 py-4 font-mono text-slate-600">{item.engineNumber}</td>
+                      <td className="px-4 py-4 text-slate-600">
+                        {item.status === "AVAILABLE" ? (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={item.branchId}
+                              disabled={loading === item.id}
+                              onChange={(e) => handleTransfer(item.id, e.target.value)}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-blue-500 focus:ring-1 cursor-pointer hover:bg-slate-50 transition"
+                            >
+                              {branches.map((b) => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                            {loading === item.id && (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium text-slate-900">{item.branchName}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {item.status === "AVAILABLE" ? (
+                          <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            Available
+                          </span>
+                        ) : (
+                          <div className="flex flex-col">
+                            <span className="inline-flex self-start items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                              Sold
+                            </span>
+                            {item.soldTo && (
+                              <span className="text-[10px] text-slate-500 mt-1 max-w-[120px] truncate">
+                                To: {item.soldTo}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        {item.status === "AVAILABLE" && (
+                          <button
+                            onClick={() => handleDelete(item.id)}
                             disabled={loading === item.id}
-                            onChange={(e) => handleTransfer(item.id, e.target.value)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-blue-500 focus:ring-1 cursor-pointer hover:bg-slate-50 transition"
+                            className="font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-50 transition"
+                            title="Delete from stock"
                           >
-                            {branches.map((b) => (
-                              <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                          </select>
-                          {loading === item.id && (
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-sm font-medium text-slate-900">{item.branchName}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {item.status === "AVAILABLE" ? (
-                        <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                          Available
-                        </span>
-                      ) : (
-                        <div className="flex flex-col">
-                          <span className="inline-flex self-start items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                            <svg className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* Exchange Vehicles Table List */
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-4 py-3.5 font-semibold w-16">S.No.</th>
+                <th className="px-4 py-3.5 font-semibold">Traded Date</th>
+                <th className="px-4 py-3.5 font-semibold">Model</th>
+                <th className="px-4 py-3.5 font-semibold">Year Model</th>
+                <th className="px-4 py-3.5 font-semibold">Valuation</th>
+                <th className="px-4 py-3.5 font-semibold">Source Sale (Customer)</th>
+                <th className="px-4 py-3.5 font-semibold">Current Branch / Allocation</th>
+                <th className="px-4 py-3.5 font-semibold">Status</th>
+                <th className="px-4 py-3.5 font-semibold text-right">Delete</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredExchangeStock.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                    No exchange stock items match your criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredExchangeStock.map((item, index) => {
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-4 py-4 text-slate-600 font-medium">{index + 1}</td>
+                      <td className="px-4 py-4 text-slate-600">{item.receivedDate}</td>
+                      <td className="px-4 py-4 font-semibold text-slate-900">{item.modelName}</td>
+                      <td className="px-4 py-4 text-slate-600 font-medium">{item.yearModel}</td>
+                      <td className="px-4 py-4 font-mono font-semibold text-emerald-600">
+                        ₹{item.valuation.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-4 py-4 text-slate-600">
+                        <a
+                          href={`/admin/sales/${item.saleReportId}`}
+                          className="text-blue-600 hover:underline font-medium"
+                        >
+                          {item.tradedInFrom}
+                        </a>
+                      </td>
+                      <td className="px-4 py-4 text-slate-600">
+                        {item.status === "AVAILABLE" ? (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={item.branchId}
+                              disabled={loading === item.id}
+                              onChange={(e) => handleExchangeTransfer(item.id, e.target.value)}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none ring-blue-500 focus:ring-1 cursor-pointer hover:bg-slate-50 transition"
+                            >
+                              {branches.map((b) => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                            {loading === item.id && (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium text-slate-900">{item.branchName}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {item.status === "AVAILABLE" ? (
+                          <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            Available
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
                             Sold
                           </span>
-                          {item.soldTo && (
-                            <span className="text-[10px] text-slate-500 mt-1 max-w-[120px] truncate">
-                              To: {item.soldTo}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      {item.status === "AVAILABLE" && (
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          disabled={loading === item.id}
-                          className="font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-50 transition"
-                          title="Delete from stock"
-                        >
-                          <svg className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        {item.status === "AVAILABLE" && (
+                          <button
+                            onClick={() => handleExchangeDelete(item.id)}
+                            disabled={loading === item.id}
+                            className="font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-50 transition"
+                            title="Delete exchange vehicle"
+                          >
+                            <svg className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Custom Alert/Confirm Modal */}
       {modalConfig.isOpen && (

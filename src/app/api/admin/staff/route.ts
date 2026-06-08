@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import path from "node:path";
+import { writeFile, mkdir, unlink } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -36,14 +39,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const { name, role, branchId, salary } = body;
+  const formData = await request.formData();
+  const name = formData.get("name") as string | null;
+  const role = formData.get("role") as string | null;
+  const branchId = formData.get("branchId") as string | null;
+  const salaryVal = formData.get("salary");
+  const salary = salaryVal !== null ? parseFloat(salaryVal.toString()) || 0 : 0;
+  
+  const email = formData.get("email") as string | null;
+  const phone = formData.get("phone") as string | null;
+  const address = formData.get("address") as string | null;
+  const emergencyContact = formData.get("emergencyContact") as string | null;
+  const dob = formData.get("dob") as string | null;
 
   if (!name || !role || !branchId) {
     return NextResponse.json(
@@ -52,13 +59,45 @@ export async function POST(request: Request) {
     );
   }
 
+  // Handle photo upload
+  let photoPath: string | null = null;
+  const photoFile = formData.get("photo") as File | null;
+  if (photoFile && photoFile.size > 0) {
+    if (photoFile.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "Photo must be under 5 MB" }, { status: 400 });
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(photoFile.type)) {
+      return NextResponse.json(
+        { error: "Photo must be JPEG, PNG, or WebP" },
+        { status: 400 },
+      );
+    }
+
+    const ext = photoFile.type.split("/")[1] === "jpeg" ? "jpg" : photoFile.type.split("/")[1];
+    const filename = `${randomUUID()}.${ext}`;
+    const uploadDir = path.join(process.cwd(), "uploads", "staff");
+    await mkdir(uploadDir, { recursive: true });
+
+    const buffer = Buffer.from(await photoFile.arrayBuffer());
+    await writeFile(path.join(uploadDir, filename), buffer);
+    photoPath = `staff/${filename}`;
+  }
+
   try {
     const newStaff = await prisma.staff.create({
       data: {
         name: name.trim(),
         role: role.trim(),
         branchId,
-        salary: salary !== undefined ? (typeof salary === "number" ? salary : parseFloat(salary) || 0) : 0,
+        salary,
+        email: email ? email.trim() : null,
+        phone: phone ? phone.trim() : null,
+        address: address ? address.trim() : null,
+        emergencyContact: emergencyContact ? emergencyContact.trim() : null,
+        dob: dob ? dob.trim() : null,
+        photoPath,
       },
     });
 
@@ -75,20 +114,79 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+  const formData = await request.formData();
+  const id = formData.get("id") as string | null;
+  const name = formData.get("name") as string | null;
+  const role = formData.get("role") as string | null;
+  const branchId = formData.get("branchId") as string | null;
+  const activeVal = formData.get("active");
+  const active = activeVal !== null ? activeVal === "true" : undefined;
+  const salaryVal = formData.get("salary");
+  const salary = salaryVal !== null ? parseFloat(salaryVal.toString()) || 0 : undefined;
 
-  const { id, name, role, branchId, active, salary } = body;
+  const email = formData.get("email") as string | null;
+  const phone = formData.get("phone") as string | null;
+  const address = formData.get("address") as string | null;
+  const emergencyContact = formData.get("emergencyContact") as string | null;
+  const dob = formData.get("dob") as string | null;
 
   if (!id || !name || !role || !branchId) {
     return NextResponse.json(
       { error: "Id, name, role, and branchId are required" },
       { status: 400 },
     );
+  }
+
+  const existing = await prisma.staff.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Staff member not found" }, { status: 404 });
+  }
+
+  // Handle photo upload / replacement
+  let photoPath = existing.photoPath;
+  const photoFile = formData.get("photo") as File | null;
+  const keepOldPhoto = formData.get("keepOldPhoto") === "true";
+  
+  if (photoFile && photoFile.size > 0) {
+    if (photoFile.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "Photo must be under 5 MB" }, { status: 400 });
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(photoFile.type)) {
+      return NextResponse.json(
+        { error: "Photo must be JPEG, PNG, or WebP" },
+        { status: 400 },
+      );
+    }
+
+    // Delete old file if exists
+    if (existing.photoPath) {
+      try {
+        await unlink(path.join(process.cwd(), "uploads", existing.photoPath));
+      } catch {
+        // ignore
+      }
+    }
+
+    const ext = photoFile.type.split("/")[1] === "jpeg" ? "jpg" : photoFile.type.split("/")[1];
+    const filename = `${randomUUID()}.${ext}`;
+    const uploadDir = path.join(process.cwd(), "uploads", "staff");
+    await mkdir(uploadDir, { recursive: true });
+
+    const buffer = Buffer.from(await photoFile.arrayBuffer());
+    await writeFile(path.join(uploadDir, filename), buffer);
+    photoPath = `staff/${filename}`;
+  } else if (!keepOldPhoto) {
+    // If we're not keeping the old photo, delete it
+    if (existing.photoPath) {
+      try {
+        await unlink(path.join(process.cwd(), "uploads", existing.photoPath));
+      } catch {
+        // ignore
+      }
+    }
+    photoPath = null;
   }
 
   try {
@@ -98,8 +196,14 @@ export async function PUT(request: Request) {
         name: name.trim(),
         role: role.trim(),
         branchId,
-        active: typeof active === "boolean" ? active : undefined,
-        salary: salary !== undefined ? (typeof salary === "number" ? salary : parseFloat(salary) || 0) : undefined,
+        active,
+        salary,
+        email: email ? email.trim() : null,
+        phone: phone ? phone.trim() : null,
+        address: address ? address.trim() : null,
+        emergencyContact: emergencyContact ? emergencyContact.trim() : null,
+        dob: dob ? dob.trim() : null,
+        photoPath,
       },
     });
 
@@ -124,6 +228,15 @@ export async function DELETE(request: Request) {
   }
 
   try {
+    const existing = await prisma.staff.findUnique({ where: { id } });
+    if (existing && existing.photoPath) {
+      try {
+        await unlink(path.join(process.cwd(), "uploads", existing.photoPath));
+      } catch {
+        // ignore
+      }
+    }
+
     await prisma.staff.delete({
       where: { id },
     });

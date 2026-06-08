@@ -14,7 +14,10 @@ export default async function SaleDetailPage({ params }: SaleDetailPageProps) {
   const session = await requireBranchManager();
   const { id } = await params;
 
-  const sale = await prisma.saleReport.findUnique({ where: { id } });
+  const sale = await prisma.saleReport.findUnique({
+    where: { id },
+    include: { salesExecutive: true },
+  });
   if (!sale || sale.branchId !== session.branchId) {
     notFound();
   }
@@ -70,6 +73,12 @@ export default async function SaleDetailPage({ params }: SaleDetailPageProps) {
             <div className="rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Amount</p>
               <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.totalAmount)}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Sales Executive</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">
+                {sale.salesExecutive?.name || "—"}
+              </p>
             </div>
             <div className="rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Down Payment</p>

@@ -14,6 +14,18 @@ export default async function ManagerInventoryPage() {
     orderBy: { receivedDate: "asc" },
   });
 
+  // Fetch available exchange stock for this branch, oldest first (FIFO to push aging stock)
+  const exchangeStock = await prisma.exchangeVehicle.findMany({
+    where: {
+      branchId: session.branchId!,
+      status: "AVAILABLE",
+    },
+    orderBy: { receivedDate: "asc" },
+    include: {
+      saleReport: true,
+    },
+  });
+
   const formattedStock = stock.map((s) => ({
     id: s.id,
     chassisNumber: s.chassisNumber,
@@ -24,7 +36,22 @@ export default async function ManagerInventoryPage() {
     receivedDate: s.receivedDate.toISOString().slice(0, 10),
   }));
 
+  const formattedExchangeStock = exchangeStock.map((s) => ({
+    id: s.id,
+    modelName: s.modelName,
+    yearModel: s.yearModel,
+    valuation: s.valuation,
+    status: s.status,
+    receivedDate: s.receivedDate.toISOString().slice(0, 10),
+    saleReportId: s.saleReportId,
+    tradedInFrom: s.saleReport ? s.saleReport.customerName : "Unknown",
+  }));
+
   return (
-    <ManagerInventoryClient initialStock={formattedStock} user={session} />
+    <ManagerInventoryClient
+      initialStock={formattedStock}
+      initialExchangeStock={formattedExchangeStock}
+      user={session}
+    />
   );
 }

@@ -85,6 +85,26 @@ export async function PUT(request: Request, context: RouteContext) {
     ? Number(formData.get("bankAmount")) || 0
     : existing.bankAmount;
 
+  const hasExchange = formData.has("hasExchange")
+    ? formData.get("hasExchange") === "true"
+    : existing.hasExchange;
+  const exchangeAmount = formData.has("exchangeAmount")
+    ? (Number(formData.get("exchangeAmount")) || 0)
+    : existing.exchangeAmount;
+  const exchangeModel = formData.has("exchangeModel")
+    ? (formData.get("exchangeModel") as string | null)
+    : existing.exchangeModel;
+  const exchangeYear = formData.has("exchangeYear")
+    ? (formData.get("exchangeYear") as string | null)
+    : existing.exchangeYear;
+
+  const hasHandLoan = formData.has("hasHandLoan")
+    ? formData.get("hasHandLoan") === "true"
+    : existing.hasHandLoan;
+  const handLoanAmount = formData.has("handLoanAmount")
+    ? (Number(formData.get("handLoanAmount")) || 0)
+    : existing.handLoanAmount;
+
   if (paymentMode === "Cash") {
     cashAmount = downPayment;
     bankAmount = 0;
@@ -131,6 +151,10 @@ export async function PUT(request: Request, context: RouteContext) {
   const finalFinancer = paymentType === "Self" ? "Self" : financer;
   const finalFinanceAmount = paymentType === "Self" ? 0 : financeAmount;
 
+  const salesExecutiveId = formData.has("salesExecutiveId")
+    ? (formData.get("salesExecutiveId") as string) || null
+    : existing.salesExecutiveId;
+
   const report = await prisma.saleReport.update({
     where: { id },
     data: {
@@ -148,9 +172,53 @@ export async function PUT(request: Request, context: RouteContext) {
       cashAmount,
       bankAmount,
       aadhaarImagePath,
+      hasExchange,
+      exchangeAmount: hasExchange ? exchangeAmount : 0,
+      exchangeModel: hasExchange ? exchangeModel : null,
+      exchangeYear: hasExchange ? exchangeYear : null,
+      hasHandLoan,
+      handLoanAmount: hasHandLoan ? handLoanAmount : 0,
+      salesExecutiveId,
       ...(createdAt ? { createdAt } : {}),
     },
   });
+
+  // Sync exchange vehicle
+  if (hasExchange) {
+    const existingVehicle = await prisma.exchangeVehicle.findUnique({
+      where: { saleReportId: id },
+    });
+    if (existingVehicle) {
+      await prisma.exchangeVehicle.update({
+        where: { saleReportId: id },
+        data: {
+          modelName: exchangeModel || "Unknown Model",
+          yearModel: exchangeYear || "Unknown Year",
+          valuation: exchangeAmount,
+        },
+      });
+    } else {
+      await prisma.exchangeVehicle.create({
+        data: {
+          saleReportId: id,
+          modelName: exchangeModel || "Unknown Model",
+          yearModel: exchangeYear || "Unknown Year",
+          valuation: exchangeAmount,
+          branchId: existing.branchId,
+          status: "AVAILABLE",
+        },
+      });
+    }
+  } else {
+    const existingVehicle = await prisma.exchangeVehicle.findUnique({
+      where: { saleReportId: id },
+    });
+    if (existingVehicle) {
+      await prisma.exchangeVehicle.delete({
+        where: { saleReportId: id },
+      });
+    }
+  }
 
   const vehicleStockId = formData.get("vehicleStockId") as string | null;
   if (formData.has("vehicleStockId")) {

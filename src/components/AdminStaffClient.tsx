@@ -39,6 +39,15 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
   const [formBranchId, setFormBranchId] = useState("");
   const [formActive, setFormActive] = useState(true);
 
+  // New Personal Details States
+  const [formEmail, setFormEmail] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formAddress, setFormAddress] = useState("");
+  const [formEmergencyContact, setFormEmergencyContact] = useState("");
+  const [formDob, setFormDob] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
   // Add Expense Form States
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -51,9 +60,50 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
     setFormBranchId(branches[0]?.id || "");
     setFormActive(true);
     setFormSalary("0");
+    setFormEmail("");
+    setFormPhone("");
+    setFormAddress("");
+    setFormEmergencyContact("");
+    setFormDob("");
+    setPhotoFile(null);
+    setPhotoPreview(null);
     setErrorMsg("");
     setSuccessMsg("");
     setShowModal(true);
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Profile photo must be under 5 MB");
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setErrorMsg("");
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setErrorMsg("Profile photo must be JPEG, PNG, or WebP");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Profile photo must be under 5 MB");
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setErrorMsg("");
   }
 
 
@@ -72,21 +122,30 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
     const isEditing = activeStaff !== null;
     const url = "/api/admin/staff";
     const method = isEditing ? "PUT" : "POST";
-    const parsedSalary = parseFloat(formSalary) || 0;
-    const payload = {
-      id: isEditing ? activeStaff.id : undefined,
-      name: formName,
-      role: formRole,
-      salary: parsedSalary,
-      branchId: formBranchId,
-      active: formActive,
-    };
+    
+    const formData = new FormData();
+    if (isEditing && activeStaff) {
+      formData.set("id", activeStaff.id);
+      formData.set("active", String(formActive));
+    }
+    formData.set("name", formName.trim());
+    formData.set("role", formRole.trim());
+    formData.set("salary", formSalary);
+    formData.set("branchId", formBranchId);
+    formData.set("email", formEmail.trim());
+    formData.set("phone", formPhone.trim());
+    formData.set("address", formAddress.trim());
+    formData.set("emergencyContact", formEmergencyContact.trim());
+    formData.set("dob", formDob);
+
+    if (photoFile) {
+      formData.set("photo", photoFile);
+    }
 
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       });
       const data = await res.json();
       setSubmitting(false);
@@ -211,11 +270,10 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
           </tbody>
         </table>
       </div>
-
-      {/* Editor Modal */}
+        {/* Editor Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-8">
             <h2 className="text-lg font-bold text-slate-900">
               {activeStaff ? "Edit Staff Member" : "Add Staff Member"}
             </h2>
@@ -226,71 +284,194 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
             </p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Full Name
-                </span>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  placeholder="e.g. Ramesh Kumar"
-                  required
-                  disabled={submitting || !!successMsg}
-                />
-              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Full Name <span className="text-rose-500">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. Ramesh Kumar"
+                    required
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Job Role
-                </span>
-                <input
-                  type="text"
-                  value={formRole}
-                  onChange={(e) => setFormRole(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  placeholder="e.g. Sales Executive"
-                  required
-                  disabled={submitting || !!successMsg}
-                />
-              </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Job Role <span className="text-rose-500">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={formRole}
+                    onChange={(e) => setFormRole(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. Sales Executive"
+                    required
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Monthly Base Salary (INR)
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={formSalary}
-                  onChange={(e) => setFormSalary(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  placeholder="e.g. 20000"
-                  required
-                  disabled={submitting || !!successMsg}
-                />
-              </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Monthly Base Salary (INR) <span className="text-rose-500">*</span>
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={formSalary}
+                    onChange={(e) => setFormSalary(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. 20000"
+                    required
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Dealership Branch
-                </span>
-                <select
-                  value={formBranchId}
-                  onChange={(e) => setFormBranchId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  required
-                  disabled={submitting || !!successMsg}
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Dealership Branch <span className="text-rose-500">*</span>
+                  </span>
+                  <select
+                    value={formBranchId}
+                    onChange={(e) => setFormBranchId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white text-slate-900 animate-transition"
+                    required
+                    disabled={submitting || !!successMsg}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Email Address
+                  </span>
+                  <input
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. ramesh@bajajdealership.in"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Phone Number
+                  </span>
+                  <input
+                    type="text"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. +91 98765 43210"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Emergency Contact Person
+                  </span>
+                  <input
+                    type="text"
+                    value={formEmergencyContact}
+                    onChange={(e) => setFormEmergencyContact(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. Spouse / Parent"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Date of Birth
+                  </span>
+                  <input
+                    type="date"
+                    value={formDob}
+                    onChange={(e) => setFormDob(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Permanent Address
+                  </span>
+                  <textarea
+                    rows={2}
+                    value={formAddress}
+                    onChange={(e) => setFormAddress(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="Full permanent address"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <div className="block md:col-span-2">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Profile Photo
+                  </span>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    className="relative flex min-h-[120px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-blue-400 hover:bg-blue-50/50"
+                  >
+                    {photoPreview ? (
+                      <div className="space-y-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photoPreview}
+                          alt="Profile preview"
+                          className="mx-auto max-h-24 rounded-lg border border-slate-200 object-contain shadow-xs"
+                        />
+                        <p className="text-xs text-slate-500">
+                          {photoFile?.name ?? "Selected photo"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <svg
+                          className="mx-auto h-8 w-8 text-slate-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+                          />
+                        </svg>
+                        <p className="text-xs font-semibold text-slate-600">
+                          Drag &amp; drop profile photo here or click to upload
+                        </p>
+                        <p className="text-[10px] text-slate-400">JPEG, PNG, or WebP · Max 5 MB</p>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      disabled={submitting || !!successMsg}
+                    />
+                  </div>
+                </div>
+              </div>
 
               {activeStaff && (
                 <label className="flex items-center gap-3.5 py-1.5 cursor-pointer">
@@ -308,13 +489,13 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
               )}
 
               {errorMsg && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 animate-shake">
                   {errorMsg}
                 </div>
               )}
 
               {successMsg && (
-                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700 animate-pulse">
                   {successMsg}
                 </div>
               )}

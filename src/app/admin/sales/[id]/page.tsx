@@ -22,12 +22,29 @@ export default async function AdminSaleDetailPage({
 
   const sale = await prisma.saleReport.findUnique({
     where: { id },
-    include: { branch: true, submittedBy: true, vehicleStock: true },
+    include: { branch: true, submittedBy: true, vehicleStock: true, salesExecutive: true },
   });
 
   if (!sale) {
     notFound();
   }
+
+  // Fetch active staff for this branch (and the currently assigned executive, if any, even if inactive)
+  const staff = await prisma.staff.findMany({
+    where: {
+      branchId: sale.branchId,
+      OR: [
+        { active: true },
+        { id: sale.salesExecutiveId || undefined }
+      ]
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const formattedStaff = staff.map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
 
   const isEditing = edit === "1";
 
@@ -49,6 +66,7 @@ export default async function AdminSaleDetailPage({
         <SaleReportForm
           reportId={sale.id}
           branchId={sale.branchId}
+          staff={formattedStaff}
           redirectUrl={`/admin/sales/${sale.id}`}
           initialValues={{
             customerName: sale.customerName,
@@ -74,6 +92,13 @@ export default async function AdminSaleDetailPage({
               modelName: sale.vehicleStock.modelName,
               modelVariant: sale.vehicleStock.modelVariant,
             } : undefined,
+            hasExchange: sale.hasExchange,
+            exchangeAmount: sale.exchangeAmount,
+            exchangeModel: sale.exchangeModel,
+            exchangeYear: sale.exchangeYear,
+            hasHandLoan: sale.hasHandLoan,
+            handLoanAmount: sale.handLoanAmount,
+            salesExecutiveId: sale.salesExecutiveId,
           }}
         />
       </div>
@@ -139,6 +164,12 @@ export default async function AdminSaleDetailPage({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Price</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.totalAmount)}</p>
           </div>
+          <div className="rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Sales Executive</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {sale.salesExecutive?.name || "—"}
+            </p>
+          </div>
           {sale.vehicleStock && (
             <>
               <div className="rounded-xl bg-slate-50 px-4 py-3">
@@ -159,6 +190,24 @@ export default async function AdminSaleDetailPage({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Finance Amount</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.financeAmount)}</p>
           </div>
+          {sale.hasExchange && (
+            <>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Exchange Model / Year</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{sale.exchangeModel} ({sale.exchangeYear})</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Exchange Value</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.exchangeAmount)}</p>
+              </div>
+            </>
+          )}
+          {sale.hasHandLoan && (
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Hand Loan Amount</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{formatINR(sale.handLoanAmount)}</p>
+            </div>
+          )}
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl bg-slate-50 px-4 py-3">

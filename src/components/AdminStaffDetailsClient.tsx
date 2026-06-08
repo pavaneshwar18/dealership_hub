@@ -20,6 +20,12 @@ type StaffDetailsProps = {
     createdAt: string;
     branchName: string;
     branchId: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    emergencyContact?: string | null;
+    dob?: string | null;
+    photoPath?: string | null;
   };
   attendanceStats: {
     totalDays: number;
@@ -41,7 +47,7 @@ type StaffDetailsProps = {
 
 export function AdminStaffDetailsClient({ staff, attendanceStats, payments, branches = [] }: StaffDetailsProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"payments" | "attendance" | "profile" | "sales">("payments");
+  const [activeTab, setActiveTab] = useState<"payments" | "attendance" | "profile" | "sales">("profile");
 
   // Local state for staff details to reflect updates dynamically
   const [staffData, setStaffData] = useState(staff);
@@ -57,6 +63,51 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
   const [formSalary, setFormSalary] = useState(staff.salary.toString());
   const [formBranchId, setFormBranchId] = useState(staff.branchId);
   const [formActive, setFormActive] = useState(staff.active);
+
+  // New Personal Details states
+  const [formEmail, setFormEmail] = useState(staff.email ?? "");
+  const [formPhone, setFormPhone] = useState(staff.phone ?? "");
+  const [formAddress, setFormAddress] = useState(staff.address ?? "");
+  const [formEmergencyContact, setFormEmergencyContact] = useState(staff.emergencyContact ?? "");
+  const [formDob, setFormDob] = useState(staff.dob ?? "");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    staff.photoPath ? `/api/uploads/${staff.photoPath}` : null
+  );
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Profile photo must be under 5 MB");
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setErrorMsg("");
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setErrorMsg("Profile photo must be JPEG, PNG, or WebP");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Profile photo must be under 5 MB");
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setErrorMsg("");
+  }
 
   // Get initials for the profile avatar placeholder
   const getInitials = (name: string) => {
@@ -79,21 +130,31 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
     setErrorMsg("");
     setSuccessMsg("");
 
-    const parsedSalary = parseFloat(formSalary) || 0;
-    const payload = {
-      id: staffData.id,
-      name: formName,
-      role: formRole,
-      salary: parsedSalary,
-      branchId: formBranchId,
-      active: formActive,
-    };
+    const formData = new FormData();
+    formData.set("id", staffData.id);
+    formData.set("name", formName.trim());
+    formData.set("role", formRole.trim());
+    formData.set("salary", formSalary);
+    formData.set("branchId", formBranchId);
+    formData.set("active", String(formActive));
+    formData.set("email", formEmail.trim());
+    formData.set("phone", formPhone.trim());
+    formData.set("address", formAddress.trim());
+    formData.set("emergencyContact", formEmergencyContact.trim());
+    formData.set("dob", formDob);
+
+    if (photoFile) {
+      formData.set("photo", photoFile);
+    } else if (photoPreview) {
+      formData.set("keepOldPhoto", "true");
+    } else {
+      formData.set("keepOldPhoto", "false");
+    }
 
     try {
       const res = await fetch("/api/admin/staff", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       });
       const data = await res.json();
       setSubmitting(false);
@@ -112,6 +173,12 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
         active: data.active,
         branchId: data.branchId,
         branchName: updatedBranchName,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        emergencyContact: data.emergencyContact,
+        dob: data.dob,
+        photoPath: data.photoPath,
       });
 
       setSuccessMsg("Staff member updated successfully!");
@@ -184,8 +251,17 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
 
       {/* Profile Header Block */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col md:flex-row md:items-center gap-6">
-        <div className="h-16 w-16 shrink-0 rounded-2xl bg-slate-100 flex items-center justify-center border border-slate-200 text-2xl font-bold text-slate-600">
-          {getInitials(staffData.name)}
+        <div className="h-24 w-24 shrink-0 rounded-2xl bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden text-slate-600">
+          {staffData.photoPath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/uploads/${staffData.photoPath}`}
+              alt={staffData.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="text-3xl font-bold">{getInitials(staffData.name)}</span>
+          )}
         </div>
         
         <div className="space-y-1.5 flex-1 min-w-0">
@@ -215,26 +291,6 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
       {/* Navigation Tabs */}
       <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
         <button
-          onClick={() => setActiveTab("payments")}
-          className={`pb-3 text-sm font-semibold border-b-2 px-3 whitespace-nowrap transition-colors ${
-            activeTab === "payments"
-              ? "border-blue-700 text-blue-700"
-              : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
-          }`}
-        >
-          Salary & Payment Logs
-        </button>
-        <button
-          onClick={() => setActiveTab("attendance")}
-          className={`pb-3 text-sm font-semibold border-b-2 px-3 whitespace-nowrap transition-colors ${
-            activeTab === "attendance"
-              ? "border-blue-700 text-blue-700"
-              : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
-          }`}
-        >
-          Attendance & Metrics
-        </button>
-        <button
           onClick={() => setActiveTab("profile")}
           className={`pb-3 text-sm font-semibold border-b-2 px-3 whitespace-nowrap transition-colors ${
             activeTab === "profile"
@@ -253,6 +309,26 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
           }`}
         >
           Sales Performance
+        </button>
+        <button
+          onClick={() => setActiveTab("attendance")}
+          className={`pb-3 text-sm font-semibold border-b-2 px-3 whitespace-nowrap transition-colors ${
+            activeTab === "attendance"
+              ? "border-blue-700 text-blue-700"
+              : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
+          }`}
+        >
+          Attendance & Metrics
+        </button>
+        <button
+          onClick={() => setActiveTab("payments")}
+          className={`pb-3 text-sm font-semibold border-b-2 px-3 whitespace-nowrap transition-colors ${
+            activeTab === "payments"
+              ? "border-blue-700 text-blue-700"
+              : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
+          }`}
+        >
+          Salary & Payment Logs
         </button>
       </div>
 
@@ -360,11 +436,11 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
               <div className="space-y-3">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Email Address</label>
-                  <span className="text-sm font-bold text-slate-800">{staffData.name.toLowerCase().replace(" ", "")}@bajajdealership.in</span>
+                  <span className="text-sm font-bold text-slate-800">{staffData.email || `${staffData.name.toLowerCase().replace(/\s+/g, "")}@bajajdealership.in`}</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Phone Number</label>
-                  <span className="text-sm font-bold text-slate-800">+91 98765 43210</span>
+                  <span className="text-sm font-bold text-slate-800">{staffData.phone || "N/A"}</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Hiring & Registration Date</label>
@@ -375,15 +451,15 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
               <div className="space-y-3">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Permanent Address</label>
-                  <span className="text-sm font-bold text-slate-800">Dealership Staff Colony, Street No. 4, {staffData.branchName}</span>
+                  <span className="text-sm font-bold text-slate-800">{staffData.address || "N/A"}</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Emergency Contact Person</label>
-                  <span className="text-sm font-bold text-slate-800">Family Resident (Spouse/Parent)</span>
+                  <span className="text-sm font-bold text-slate-800">{staffData.emergencyContact || "N/A"}</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Date of Birth</label>
-                  <span className="text-sm font-bold text-slate-800">15th August, 1995</span>
+                  <span className="text-sm font-bold text-slate-800">{staffData.dob ? formatDate(staffData.dob) : "N/A"}</span>
                 </div>
               </div>
             </div>
@@ -414,69 +490,193 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
 
       {/* Editor Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-8">
             <h2 className="text-lg font-bold text-slate-900">Edit Staff Profile</h2>
             <p className="mt-1 text-sm text-slate-500">Update employee information and active status.</p>
 
             <form onSubmit={handleEditSubmit} className="mt-5 space-y-4">
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">Full Name</span>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  placeholder="e.g. Ramesh Kumar"
-                  required
-                  disabled={submitting || !!successMsg}
-                />
-              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Full Name</span>
+                  <input
+                    type="text"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. Ramesh Kumar"
+                    required
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">Job Role</span>
-                <input
-                  type="text"
-                  value={formRole}
-                  onChange={(e) => setFormRole(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  placeholder="e.g. Sales Executive"
-                  required
-                  disabled={submitting || !!successMsg}
-                />
-              </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Job Role</span>
+                  <input
+                    type="text"
+                    value={formRole}
+                    onChange={(e) => setFormRole(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. Sales Executive"
+                    required
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">Monthly Base Salary (INR)</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={formSalary}
-                  onChange={(e) => setFormSalary(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  placeholder="e.g. 20000"
-                  required
-                  disabled={submitting || !!successMsg}
-                />
-              </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Monthly Base Salary (INR)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={formSalary}
+                    onChange={(e) => setFormSalary(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. 20000"
+                    required
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">Dealership Branch</span>
-                <select
-                  value={formBranchId}
-                  onChange={(e) => setFormBranchId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                  required
-                  disabled={submitting || !!successMsg}
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Dealership Branch</span>
+                  <select
+                    value={formBranchId}
+                    onChange={(e) => setFormBranchId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white text-slate-900 animate-transition"
+                    required
+                    disabled={submitting || !!successMsg}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Email Address</span>
+                  <input
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. ramesh@bajajdealership.in"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Phone Number</span>
+                  <input
+                    type="text"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. +91 98765 43210"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Emergency Contact Person</span>
+                  <input
+                    type="text"
+                    value={formEmergencyContact}
+                    onChange={(e) => setFormEmergencyContact(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="e.g. Spouse / Parent"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Date of Birth</span>
+                  <input
+                    type="date"
+                    value={formDob}
+                    onChange={(e) => setFormDob(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Permanent Address</span>
+                  <textarea
+                    rows={2}
+                    value={formAddress}
+                    onChange={(e) => setFormAddress(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 animate-transition bg-white"
+                    placeholder="Full permanent address"
+                    disabled={submitting || !!successMsg}
+                  />
+                </label>
+
+                <div className="block md:col-span-2">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Profile Photo</span>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    className="relative flex min-h-[120px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-blue-400 hover:bg-blue-50/50"
+                  >
+                    {photoPreview ? (
+                      <div className="space-y-2 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photoPreview}
+                          alt="Profile preview"
+                          className="mx-auto max-h-24 rounded-lg border border-slate-200 object-contain shadow-xs"
+                        />
+                        <p className="text-xs text-slate-500">
+                          {photoFile?.name ?? "Profile photo active"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhotoFile(null);
+                            setPhotoPreview(null);
+                          }}
+                          className="absolute -top-1 -right-1 rounded-full bg-rose-500 hover:bg-rose-600 text-white p-1 text-xs"
+                          title="Remove Photo"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <svg
+                          className="mx-auto h-8 w-8 text-slate-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+                          />
+                        </svg>
+                        <p className="text-xs font-semibold text-slate-600">
+                          Drag &amp; drop profile photo here or click to upload
+                        </p>
+                        <p className="text-[10px] text-slate-400">JPEG, PNG, or WebP · Max 5 MB</p>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      disabled={submitting || !!successMsg}
+                    />
+                  </div>
+                </div>
+              </div>
 
               <label className="flex items-center gap-3.5 py-1.5 cursor-pointer">
                 <input
@@ -492,13 +692,13 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
               </label>
 
               {errorMsg && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 animate-shake">
                   {errorMsg}
                 </div>
               )}
 
               {successMsg && (
-                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700 animate-pulse">
                   {successMsg}
                 </div>
               )}

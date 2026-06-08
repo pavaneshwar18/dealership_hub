@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatINR, formatDate } from "@/lib/format";
 
 type SaleItem = {
@@ -33,6 +33,7 @@ type AdminSalesClientProps = {
 };
 
 export function AdminSalesClient({ initialSales, branches }: AdminSalesClientProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -480,19 +481,22 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
               <th className="px-4 py-3.5 font-semibold">Total Amount</th>
               <th className="px-4 py-3.5 font-semibold">Finance Amount</th>
               <th className="px-4 py-3.5 font-semibold">Financer</th>
-              <th className="px-4 py-3.5 font-semibold text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredSales.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   No sales reports found matching criteria.
                 </td>
               </tr>
             ) : (
               filteredSales.map((sale) => (
-                <tr key={sale.id} className="hover:bg-slate-50/50 transition">
+                <tr
+                  key={sale.id}
+                  onClick={() => router.push(`/admin/sales/${sale.id}`)}
+                  className="hover:bg-slate-50/50 transition cursor-pointer"
+                >
                   <td className="px-4 py-4 text-slate-600">
                     {formatDate(sale.createdAt)}
                   </td>
@@ -520,14 +524,6 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
                     ) : (
                       sale.financer || "—"
                     )}
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <Link
-                      href={`/admin/sales/${sale.id}`}
-                      className="font-semibold text-blue-700 hover:underline"
-                    >
-                      View
-                    </Link>
                   </td>
                 </tr>
               ))

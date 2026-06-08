@@ -44,6 +44,7 @@ type StaffMember = {
   id: string;
   name: string;
   role: string;
+  branchId: string;
 };
 
 type AdminFinancialsClientProps = {
@@ -109,6 +110,12 @@ export function AdminFinancialsClient({ branches, staff = [] }: AdminFinancialsC
   // Search filter for Unified Ledger
   const [ledgerSearch, setLedgerSearch] = useState("");
 
+  // Filtered staff based on branch
+  const formStaffOptions = useMemo(() => {
+    if (formCategory !== "Salaries") return [];
+    return staff.filter((s) => s.branchId === formBranchId);
+  }, [staff, formCategory, formBranchId]);
+
   const categories = [
     "Rent",
     "Utilities",
@@ -158,6 +165,16 @@ export function AdminFinancialsClient({ branches, staff = [] }: AdminFinancialsC
     }
   }, [mounted, fetchFinancials]);
 
+  const handleCategoryChange = (val: string) => {
+    setFormCategory(val);
+    setFormStaffId("");
+    if (val === "Salaries") {
+      setFormBranchId(""); // force branch selection
+    } else {
+      setFormBranchId("ALL");
+    }
+  };
+
   // Handle Form Submission to add new expense
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,6 +192,19 @@ export function AdminFinancialsClient({ branches, staff = [] }: AdminFinancialsC
       setFormError("Enter a valid positive amount.");
       setFormLoading(false);
       return;
+    }
+
+    if (formCategory === "Salaries") {
+      if (!formBranchId || formBranchId === "ALL") {
+        setFormError("Please select a specific branch for salary expense.");
+        setFormLoading(false);
+        return;
+      }
+      if (!formStaffId) {
+        setFormError("Please select an employee.");
+        setFormLoading(false);
+        return;
+      }
     }
 
     try {
@@ -640,8 +670,8 @@ export function AdminFinancialsClient({ branches, staff = [] }: AdminFinancialsC
                     <span className="text-slate-500">Category</span>
                     <select
                       value={formCategory}
-                      onChange={(e) => setFormCategory(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
+                      onChange={(e) => handleCategoryChange(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition bg-white"
                     >
                       {categories.map((c) => (
                         <option key={c} value={c}>
@@ -652,22 +682,45 @@ export function AdminFinancialsClient({ branches, staff = [] }: AdminFinancialsC
                   </label>
 
                   {formCategory === "Salaries" && (
-                    <label className="block space-y-1">
-                      <span className="text-slate-500">Paid to Employee *</span>
-                      <select
-                        value={formStaffId}
-                        onChange={(e) => setFormStaffId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
-                        required
-                      >
-                        <option value="">Select Employee</option>
-                        {staff.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.role})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <>
+                      <label className="block space-y-1">
+                        <span className="text-slate-500">Branch *</span>
+                        <select
+                          value={formBranchId}
+                          onChange={(e) => {
+                            setFormBranchId(e.target.value);
+                            setFormStaffId("");
+                          }}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition bg-white"
+                          required
+                        >
+                          <option value="">Select Branch</option>
+                          {branches.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block space-y-1">
+                        <span className="text-slate-500">Paid to Employee *</span>
+                        <select
+                          value={formStaffId}
+                          onChange={(e) => setFormStaffId(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition bg-white"
+                          required
+                          disabled={!formBranchId}
+                        >
+                          <option value="">{formBranchId ? "Select Employee" : "Choose Branch First"}</option>
+                          {formStaffOptions.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.role})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
                   )}
 
                   <label className="block space-y-1">
@@ -695,21 +748,23 @@ export function AdminFinancialsClient({ branches, staff = [] }: AdminFinancialsC
                     />
                   </label>
 
-                  <label className="block space-y-1">
-                    <span className="text-slate-500">Attribute to Branch (Optional)</span>
-                    <select
-                      value={formBranchId}
-                      onChange={(e) => setFormBranchId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
-                    >
-                      <option value="ALL">Entire Dealership HQ</option>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {formCategory !== "Salaries" && (
+                    <label className="block space-y-1">
+                      <span className="text-slate-500">Attribute to Branch (Optional)</span>
+                      <select
+                        value={formBranchId}
+                        onChange={(e) => setFormBranchId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition bg-white"
+                      >
+                        <option value="ALL">Entire Dealership HQ</option>
+                        {branches.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
 
                   <label className="block space-y-1">
                     <span className="text-slate-500">Description / Notes</span>

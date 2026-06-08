@@ -20,6 +20,7 @@ export default async function AdminFinancialsPage() {
     id: s.id,
     name: s.name,
     role: s.role,
+    branchId: s.branchId,
   }));
 
   return <AdminFinancialsClient branches={branches} staff={formattedStaff} />;
