@@ -52,9 +52,6 @@ export async function PUT(request: Request, context: RouteContext) {
 
   const parsed = parseReportBody(body);
 
-  // Delete existing stock entries and re-create
-  await prisma.stockEntry.deleteMany({ where: { dailyReportId: id } });
-
   const report = await prisma.dailyReport.update({
     where: { id },
     data: {
@@ -76,16 +73,7 @@ export async function PUT(request: Request, context: RouteContext) {
       status: "SUBMITTED",
       reviewedAt: null,
       adminComment: null,
-      stockEntries: {
-        create: (parsed.stockEntries ?? []).map((e) => ({
-          modelName: e.modelName,
-          modelVariant: e.modelVariant,
-          stockOnHand: e.stockOnHand,
-          newStockReceived: e.newStockReceived,
-        })),
-      },
     },
-    include: { stockEntries: true },
   });
 
   return NextResponse.json(report);
@@ -100,7 +88,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
   const report = await prisma.dailyReport.findUnique({
     where: { id },
-    include: { branch: true, submittedBy: true, stockEntries: true },
+    include: { branch: true, submittedBy: true },
   });
 
   if (!report) {

@@ -49,7 +49,7 @@ export default async function AdminPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Admin overview</h1>
           <p className="mt-2 text-slate-500">
-            All-branch snapshot for {formatDate(today)} · Bajaj 3-wheeler auto
+            All-branch snapshot for {formatDate(today)} · Vishnu Priya Automotives
           </p>
         </div>
 

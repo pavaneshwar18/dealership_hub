@@ -22,7 +22,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         date: today,
       },
     },
-    include: { stockEntries: true },
   });
 
   const recentReports = await prisma.dailyReport.findMany({
@@ -46,7 +45,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">{session.branchName} Branch</h1>
           <p className="mt-2 text-slate-500">
-            Submit today&apos;s Bajaj 3-wheeler numbers for {formatDate(today)}.
+            Submit today&apos;s Vishnu Priya Automotives numbers for {formatDate(today)}.
           </p>
         </div>
 

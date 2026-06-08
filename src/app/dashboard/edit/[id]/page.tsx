@@ -15,7 +15,6 @@ export default async function EditReportPage({ params }: EditReportPageProps) {
 
   const report = await prisma.dailyReport.findUnique({
     where: { id },
-    include: { stockEntries: true },
   });
   if (!report || report.branchId !== session.branchId) {
     notFound();
@@ -47,12 +46,6 @@ export default async function EditReportPage({ params }: EditReportPageProps) {
             highlights: report.highlights ?? "",
             issues: report.issues ?? "",
             notes: report.notes ?? "",
-            stockEntries: report.stockEntries.map((e) => ({
-              modelName: e.modelName,
-              modelVariant: e.modelVariant,
-              stockOnHand: e.stockOnHand,
-              newStockReceived: e.newStockReceived,
-            })),
           }}
         />
       </main>

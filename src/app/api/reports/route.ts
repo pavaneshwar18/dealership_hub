@@ -37,14 +37,6 @@ export async function POST(request: Request) {
         highlights: body.highlights,
         issues: body.issues,
         notes: body.notes,
-        stockEntries: {
-          create: (body.stockEntries ?? []).map((e) => ({
-            modelName: e.modelName,
-            modelVariant: e.modelVariant,
-            stockOnHand: e.stockOnHand,
-            newStockReceived: e.newStockReceived,
-          })),
-        },
       },
     });
 
@@ -71,7 +63,7 @@ export async function GET(request: Request) {
       where: { branchId: session.branchId },
       orderBy: { date: "desc" },
       take: 30,
-      include: { branch: true, stockEntries: true },
+      include: { branch: true },
     });
     return NextResponse.json(reports);
   }
@@ -84,7 +76,7 @@ export async function GET(request: Request) {
     const reports = await prisma.dailyReport.findMany({
       where,
       orderBy: [{ date: "desc" }, { branch: { name: "asc" } }],
-      include: { branch: true, submittedBy: true, stockEntries: true },
+      include: { branch: true, submittedBy: true },
     });
     return NextResponse.json(reports);
   }

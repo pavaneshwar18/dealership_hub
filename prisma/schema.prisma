@@ -27,6 +27,7 @@ model Branch {
   saleReports  SaleReport[]
   staff        Staff[]
   vehicleStock VehicleStock[]
+  cashSheets   CashSheet[]
 }
 
 model User {
@@ -39,6 +40,7 @@ model User {
   branch       Branch?       @relation(fields: [branchId], references: [id])
   reports      DailyReport[]
   saleReports  SaleReport[]
+  cashSheets   CashSheet[]
   createdAt    DateTime      @default(now())
 }
 
@@ -59,8 +61,6 @@ model DailyReport {
   serviceJobs         Int          @default(0)
   serviceRevenue      Float        @default(0)
 
-  stockEntries        StockEntry[]
-
   cashCollected       Float        @default(0)
   pendingPayments     Float        @default(0)
 
@@ -79,20 +79,6 @@ model DailyReport {
   updatedAt           DateTime     @updatedAt
 
   @@unique([branchId, date])
-}
-
-model StockEntry {
-  id               String      @id @default(cuid())
-  dailyReportId    String
-  dailyReport      DailyReport @relation(fields: [dailyReportId], references: [id], onDelete: Cascade)
-
-  modelName        String
-  modelVariant     String?
-
-  stockOnHand      Int         @default(0)
-  newStockReceived Int         @default(0)
-
-  @@unique([dailyReportId, modelName, modelVariant])
 }
 
 model SaleReport {
@@ -179,4 +165,37 @@ model VehicleStock {
 
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+enum CashSheetStatus {
+  DRAFT
+  SUBMITTED
+}
+
+model CashSheet {
+  id              String          @id @default(cuid())
+  date            DateTime
+  branchId        String
+  branch          Branch          @relation(fields: [branchId], references: [id])
+  submittedById   String
+  submittedBy     User            @relation(fields: [submittedById], references: [id])
+  openingBalance  Float           @default(0)
+  closingBalance  Float           @default(0)
+  status          CashSheetStatus @default(DRAFT)
+  submittedAt     DateTime?
+  transactions    CashTransaction[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([branchId, date])
+}
+
+model CashTransaction {
+  id          String    @id @default(cuid())
+  cashSheetId String
+  cashSheet   CashSheet @relation(fields: [cashSheetId], references: [id], onDelete: Cascade)
+  type        String    // "CREDIT" or "DEBIT"
+  amount      Float
+  description String
+  createdAt   DateTime  @default(now())
 }

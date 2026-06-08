@@ -3,14 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate, formatINR } from "@/lib/format";
-import { formatModelDisplay } from "@/lib/models";
-
-type StockEntryData = {
-  modelName: string;
-  modelVariant: string | null;
-  stockOnHand: number;
-  newStockReceived: number;
-};
 
 type ReportDetail = {
   id: string;
@@ -33,7 +25,6 @@ type ReportDetail = {
   notes: string | null;
   status: "SUBMITTED" | "REVIEWED";
   adminComment: string | null;
-  stockEntries: StockEntryData[];
 };
 
 type AdminReviewPanelProps = {
@@ -84,37 +75,6 @@ export function AdminReviewPanel({ report }: AdminReviewPanelProps) {
         <Metric label="Cash collected" value={formatINR(report.cashCollected)} />
       </div>
 
-      {/* Stock by Model */}
-      {report.stockEntries && report.stockEntries.length > 0 && (
-        <div className="mt-5">
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">Stock by Model</h3>
-          <div className="overflow-hidden rounded-xl border border-slate-200">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Model</th>
-                  <th className="px-3 py-2 font-medium text-center">On Hand</th>
-                  <th className="px-3 py-2 font-medium text-center">New Received</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.stockEntries.map((entry) => (
-                  <tr
-                    key={`${entry.modelName}-${entry.modelVariant ?? "base"}`}
-                    className="border-t border-slate-100"
-                  >
-                    <td className="px-3 py-2 text-slate-900">
-                      {formatModelDisplay(entry.modelName, entry.modelVariant)}
-                    </td>
-                    <td className="px-3 py-2 text-center font-medium">{entry.stockOnHand}</td>
-                    <td className="px-3 py-2 text-center font-medium">{entry.newStockReceived}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {(report.highlights || report.issues || report.notes) && (
         <div className="mt-5 grid gap-3">

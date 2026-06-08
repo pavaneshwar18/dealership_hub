@@ -14,9 +14,9 @@ export default async function LoginPage() {
         <div className="grid w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl lg:grid-cols-2">
           <section className="bg-gradient-to-br from-blue-800 to-blue-950 p-8 text-white sm:p-10">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-200">
-              Bajaj 3-Wheeler Auto
+              Vishnu Priya
             </p>
-            <h1 className="mt-4 text-3xl font-bold sm:text-4xl">Dealership Hub</h1>
+            <h1 className="mt-4 text-3xl font-bold sm:text-4xl">Automotives</h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-blue-100">
               Centralised daily reporting for Miryalaguda, Nalgonda, Suryapet,
               Bhongir, and Kodad. Branch managers submit numbers; admin stays

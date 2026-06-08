@@ -15,7 +15,7 @@ export default async function AdminReportDetailPage({ params }: AdminReportDetai
 
   const report = await prisma.dailyReport.findUnique({
     where: { id },
-    include: { branch: true, submittedBy: true, stockEntries: true },
+    include: { branch: true, submittedBy: true },
   });
 
   if (!report) notFound();
@@ -55,12 +55,6 @@ export default async function AdminReportDetailPage({ params }: AdminReportDetai
           report={{
             ...report,
             date: report.date.toISOString(),
-            stockEntries: report.stockEntries.map((e) => ({
-              modelName: e.modelName,
-              modelVariant: e.modelVariant,
-              stockOnHand: e.stockOnHand,
-              newStockReceived: e.newStockReceived,
-            })),
           }}
         />
     </>

@@ -20,6 +20,7 @@ export function Navbar({ user }: NavbarProps) {
           { href: "/dashboard/history", label: "History" },
           { href: "/dashboard/sales", label: "Sales" },
           { href: "/dashboard/inventory", label: "Stock" },
+          { href: "/dashboard/cashsheet", label: "Cash Sheet" },
         ];
 
   return (
@@ -28,9 +29,9 @@ export function Navbar({ user }: NavbarProps) {
         <div>
           <Link href={user.role === "ADMIN" ? "/admin" : "/dashboard"} className="block">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
-              Bajaj 3-Wheeler
+              Vishnu Priya
             </p>
-            <h1 className="text-lg font-bold text-slate-900">Dealership Hub</h1>
+            <h1 className="text-lg font-bold text-slate-900">Automotives</h1>
           </Link>
           <p className="text-sm text-slate-500">
             {user.role === "ADMIN"

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bajaj Dealership Hub",
-  description: "Centralised daily reporting for Bajaj 3-wheeler auto dealership branches",
+  title: "Vishnu Priya Automotives",
+  description: "Centralised daily reporting for Vishnu Priya Automotives dealership branches",
 };
 
 export default function RootLayout({

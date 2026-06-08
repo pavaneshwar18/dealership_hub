@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { VEHICLE_MODELS } from "@/lib/models";
-import type { DailyReportInput, StockEntryInput } from "@/lib/reports";
+import type { DailyReportInput } from "@/lib/reports";
 
 type ReportFormProps = {
   initialDate: string;
@@ -29,43 +28,6 @@ const defaultValues: Omit<DailyReportInput, "stockEntries"> = {
   issues: "",
   notes: "",
 };
-
-type StockRow = {
-  modelName: string;
-  modelVariant: string | null;
-  stockOnHand: number;
-  newStockReceived: number;
-};
-
-function buildInitialStockRows(existing?: StockEntryInput[]): StockRow[] {
-  const rows: StockRow[] = [];
-  for (const model of VEHICLE_MODELS) {
-    if (model.variants && model.variants.length > 0) {
-      for (const variant of model.variants) {
-        const match = existing?.find(
-          (e) => e.modelName === model.name && e.modelVariant === variant,
-        );
-        rows.push({
-          modelName: model.name,
-          modelVariant: variant,
-          stockOnHand: match?.stockOnHand ?? 0,
-          newStockReceived: match?.newStockReceived ?? 0,
-        });
-      }
-    } else {
-      const match = existing?.find(
-        (e) => e.modelName === model.name && !e.modelVariant,
-      );
-      rows.push({
-        modelName: model.name,
-        modelVariant: null,
-        stockOnHand: match?.stockOnHand ?? 0,
-        newStockReceived: match?.newStockReceived ?? 0,
-      });
-    }
-  }
-  return rows;
-}
 
 function Field({
   label,
@@ -149,22 +111,11 @@ export function ReportForm({
     ...initialValues,
     date: initialDate,
   });
-  const [stockRows, setStockRows] = useState<StockRow[]>(
-    buildInitialStockRows(initialValues?.stockEntries),
-  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   function updateField(name: string, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
-  }
-
-  function updateStock(index: number, field: "stockOnHand" | "newStockReceived", value: string) {
-    setStockRows((current) => {
-      const updated = [...current];
-      updated[index] = { ...updated[index], [field]: Number(value) || 0 };
-      return updated;
-    });
   }
 
   const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -207,16 +158,10 @@ export function ReportForm({
     setLoading(true);
     setError("");
 
-    const stockEntries = stockRows.filter(
-      (r) => r.stockOnHand > 0 || r.newStockReceived > 0,
-    );
-
-    const payload = { ...values, stockEntries };
-
     const response = await fetch(reportId ? `/api/reports/${reportId}` : "/api/reports", {
       method: reportId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(values),
     });
 
     const data = await response.json();
@@ -230,9 +175,6 @@ export function ReportForm({
     router.push("/dashboard?saved=1");
     router.refresh();
   }
-
-  // Group stock rows by base model for visual grouping
-  let currentModel = "";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -295,73 +237,6 @@ export function ReportForm({
             )}
           </div>
           <Field label="Customer complaints" name="customerComplaints" value={values.customerComplaints} onChange={updateField} />
-        </div>
-      </section>
-
-      {/* Stock by Model */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-1 text-lg font-semibold text-slate-900">Stock by Model</h2>
-        <p className="mb-5 text-sm text-slate-500">
-          Enter current stock on hand and new stock received for each model.
-        </p>
-
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Model</th>
-                <th className="px-4 py-3 font-medium text-center w-36">On Hand</th>
-                <th className="px-4 py-3 font-medium text-center w-36">New Received</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stockRows.map((row, index) => {
-                const isNewGroup = row.modelName !== currentModel;
-                currentModel = row.modelName;
-
-                return (
-                  <tr
-                    key={`${row.modelName}-${row.modelVariant ?? "base"}`}
-                    className={`border-t border-slate-100 ${isNewGroup && row.modelVariant ? "border-t-slate-200" : ""}`}
-                  >
-                    <td className="px-4 py-2.5">
-                      {row.modelVariant ? (
-                        <span className="text-slate-600">
-                          {isNewGroup && (
-                            <span className="font-medium text-slate-900">{row.modelName} — </span>
-                          )}
-                          {!isNewGroup && (
-                            <span className="ml-6 text-slate-400">└ </span>
-                          )}
-                          <span>{row.modelVariant}</span>
-                        </span>
-                      ) : (
-                        <span className="font-medium text-slate-900">{row.modelName}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input
-                        type="number"
-                        min={0}
-                        value={row.stockOnHand}
-                        onChange={(e) => updateStock(index, "stockOnHand", e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm outline-none ring-blue-500 focus:ring-2"
-                      />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input
-                        type="number"
-                        min={0}
-                        value={row.newStockReceived}
-                        onChange={(e) => updateStock(index, "newStockReceived", e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm outline-none ring-blue-500 focus:ring-2"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       </section>
 
