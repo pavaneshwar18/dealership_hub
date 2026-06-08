@@ -24,11 +24,18 @@ type CashSheetData = {
   submittedBy: { name: string };
 };
 
-type CashSheetClientProps = {
-  user: SessionUser;
+type StaffMember = {
+  id: string;
+  name: string;
+  role: string;
 };
 
-export function CashSheetClient({ user }: CashSheetClientProps) {
+type CashSheetClientProps = {
+  user: SessionUser;
+  staff?: StaffMember[];
+};
+
+export function CashSheetClient({ user, staff = [] }: CashSheetClientProps) {
   const [mounted, setMounted] = useState(false);
   const [sheet, setSheet] = useState<CashSheetData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +45,7 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
   const [txType, setTxType] = useState<"CREDIT" | "DEBIT">("DEBIT");
   const [txAmount, setTxAmount] = useState("");
   const [txDescription, setTxDescription] = useState("");
+  const [txStaffId, setTxStaffId] = useState("");
   const [txLoading, setTxLoading] = useState(false);
   const [txError, setTxError] = useState("");
 
@@ -116,6 +124,7 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
           type: txType,
           amount,
           description: txDescription.trim(),
+          staffId: txStaffId && txStaffId !== "" ? txStaffId : null,
         }),
       });
 
@@ -138,6 +147,7 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
       // Reset form
       setTxAmount("");
       setTxDescription("");
+      setTxStaffId("");
     } catch {
       setTxError("Connection error");
     } finally {
@@ -478,6 +488,36 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
           </div>
         </div>
 
+        {/* Dynamic Staff Dropdown */}
+        {txType === "CREDIT" && (
+          <div className="max-w-md">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Paid to Employee / Salary Payment (Optional)
+            </label>
+            <select
+              value={txStaffId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setTxStaffId(val);
+                if (val) {
+                  const emp = staff.find((s) => s.id === val);
+                  if (emp && !txDescription.trim()) {
+                    setTxDescription(`Salary Payout: ${emp.name}`);
+                  }
+                }
+              }}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+            >
+              <option value="">No Employee linked</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.role})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="flex justify-end">
           <button
             type="submit"
@@ -587,17 +627,17 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         {/* Sheet Header */}
-        <div className="bg-slate-900 px-6 py-5 text-white">
+        <div className="bg-slate-50 border-b border-slate-200 px-6 py-5 text-slate-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Daily Cash Sheet
               </p>
-              <p className="mt-1 text-lg font-bold">{sheet.branch.name} Branch</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">{sheet.branch.name} Branch</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-300">Date</p>
-              <p className="text-sm font-bold">{todayDisplay}</p>
+              <p className="text-xs text-slate-400">Date</p>
+              <p className="text-sm font-bold text-slate-900">{todayDisplay}</p>
               <p className="mt-1 text-xs text-slate-400">
                 By {sheet.submittedBy.name}
               </p>
@@ -630,10 +670,10 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
                 <td className="px-6 py-3 text-slate-900 font-medium">
                   {tx.description}
                 </td>
-                <td className="px-6 py-3 text-right font-semibold text-green-600">
+                <td className="px-6 py-3 text-right font-semibold text-emerald-700">
                   {tx.type === "DEBIT" ? formatINR(tx.amount) : ""}
                 </td>
-                <td className="px-6 py-3 text-right font-semibold text-rose-600">
+                <td className="px-6 py-3 text-right font-semibold text-rose-700">
                   {tx.type === "CREDIT" ? formatINR(tx.amount) : ""}
                 </td>
               </tr>
@@ -644,7 +684,7 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
               <td colSpan={2} className="px-6 py-3 font-bold text-slate-700">
                 Totals
               </td>
-              <td className="px-6 py-3 text-right font-bold text-green-700">
+              <td className="px-6 py-3 text-right font-bold text-emerald-700">
                 {formatINR(totals.debits)}
               </td>
               <td className="px-6 py-3 text-right font-bold text-rose-700">
@@ -655,11 +695,11 @@ export function CashSheetClient({ user }: CashSheetClientProps) {
         </table>
 
         {/* Closing Balance */}
-        <div className="flex items-center justify-between px-6 py-5 border-t-2 border-slate-900 bg-slate-900 text-white">
-          <span className="text-sm font-bold uppercase tracking-wider">
+        <div className="flex items-center justify-between px-6 py-5 border-t border-slate-200 bg-slate-50 text-slate-800">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Closing Balance
           </span>
-          <span className="text-2xl font-bold">
+          <span className="text-2xl font-bold text-slate-900">
             {formatINR(totals.balance)}
           </span>
         </div>

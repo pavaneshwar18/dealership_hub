@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatINR } from "@/lib/format";
+import { useRouter } from "next/navigation";
+import { formatINR, formatDate } from "@/lib/format";
 
 type StaffItem = {
   id: string;
@@ -24,6 +25,7 @@ type AdminStaffClientProps = {
 };
 
 export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientProps) {
+  const router = useRouter();
   const [staffList, setStaffList] = useState<StaffItem[]>(initialStaff);
   const [filterBranchId, setFilterBranchId] = useState<string>("ALL");
 
@@ -37,6 +39,7 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
   const [formBranchId, setFormBranchId] = useState("");
   const [formActive, setFormActive] = useState(true);
 
+  // Add Expense Form States
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -53,17 +56,7 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
     setShowModal(true);
   }
 
-  function handleOpenEdit(staff: StaffItem) {
-    setActiveStaff(staff);
-    setFormName(staff.name);
-    setFormRole(staff.role);
-    setFormBranchId(staff.branchId);
-    setFormActive(staff.active);
-    setFormSalary(staff.salary.toString());
-    setErrorMsg("");
-    setSuccessMsg("");
-    setShowModal(true);
-  }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -133,27 +126,7 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Are you sure you want to delete ${name}? This will permanently remove all their associated attendance history.`)) {
-      return;
-    }
 
-    try {
-      const res = await fetch(`/api/admin/staff?id=${id}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error ?? "Failed to delete staff member.");
-        return;
-      }
-
-      setStaffList((prev) => prev.filter((item) => item.id !== id));
-    } catch {
-      alert("Failed to delete staff member due to a network error.");
-    }
-  }
 
   // Filter list
   const filteredStaff = staffList.filter((s) => {
@@ -199,50 +172,41 @@ export function AdminStaffClient({ initialStaff, branches }: AdminStaffClientPro
               <th className="px-5 py-3.5 font-semibold">Branch</th>
               <th className="px-5 py-3.5 font-semibold">Salary</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
-              <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredStaff.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-5 py-8 text-center text-slate-500">
                   No staff members found matching criteria.
                 </td>
               </tr>
             ) : (
-              filteredStaff.map((staff) => (
-                <tr key={staff.id} className="hover:bg-slate-50/50 transition">
-                  <td className="px-5 py-4 font-semibold text-slate-900">{staff.name}</td>
-                  <td className="px-5 py-4 text-slate-600">{staff.role}</td>
-                  <td className="px-5 py-4 text-slate-600">{staff.branchName}</td>
-                  <td className="px-5 py-4 text-slate-600">{formatINR(staff.salary)}</td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        staff.active
-                          ? "bg-green-50 text-green-700"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {staff.active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-right space-x-2.5">
-                    <button
-                      onClick={() => handleOpenEdit(staff)}
-                      className="text-xs font-semibold text-blue-700 hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(staff.id, staff.name)}
-                      className="text-xs font-semibold text-rose-700 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
+              filteredStaff.map((staff) => {
+                return (
+                  <tr
+                    key={staff.id}
+                    onClick={() => router.push(`/admin/staff/${staff.id}`)}
+                    className="cursor-pointer transition hover:bg-slate-50/50"
+                  >
+                    <td className="px-5 py-4 font-semibold text-slate-900">{staff.name}</td>
+                    <td className="px-5 py-4 text-slate-600">{staff.role}</td>
+                    <td className="px-5 py-4 text-slate-600">{staff.branchName}</td>
+                    <td className="px-5 py-4 text-slate-600">{formatINR(staff.salary)}</td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          staff.active
+                            ? "bg-green-50 text-green-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {staff.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

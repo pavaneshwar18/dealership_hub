@@ -1,8 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { AdminCashSheetsClient } from "@/components/AdminCashSheetsClient";
+import { AdminFinancialsClient } from "@/components/AdminFinancialsClient";
 
-export default async function AdminCashSheetsPage() {
+export default async function AdminFinancialsPage() {
   await requireAdmin();
 
   // Fetch branches for selection filtering
@@ -10,7 +10,7 @@ export default async function AdminCashSheetsPage() {
     orderBy: { name: "asc" },
   });
 
-  // Fetch active staff for the salary dropdown on admin cash transaction add
+  // Fetch active staff for salary logging dropdown
   const staff = await prisma.staff.findMany({
     where: { active: true },
     orderBy: { name: "asc" },
@@ -20,8 +20,7 @@ export default async function AdminCashSheetsPage() {
     id: s.id,
     name: s.name,
     role: s.role,
-    branchId: s.branchId,
   }));
 
-  return <AdminCashSheetsClient branches={branches} staff={formattedStaff} />;
+  return <AdminFinancialsClient branches={branches} staff={formattedStaff} />;
 }

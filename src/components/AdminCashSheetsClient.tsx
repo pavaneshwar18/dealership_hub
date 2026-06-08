@@ -28,11 +28,19 @@ type BranchItem = {
   name: string;
 };
 
-type AdminCashSheetsClientProps = {
-  branches: BranchItem[];
+type StaffMember = {
+  id: string;
+  name: string;
+  role: string;
+  branchId: string;
 };
 
-export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) {
+type AdminCashSheetsClientProps = {
+  branches: BranchItem[];
+  staff?: StaffMember[];
+};
+
+export function AdminCashSheetsClient({ branches, staff = [] }: AdminCashSheetsClientProps) {
   const [mounted, setMounted] = useState(false);
   const [sheets, setSheets] = useState<CashSheetData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +103,7 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
   const [txType, setTxType] = useState<"CREDIT" | "DEBIT">("DEBIT");
   const [txAmount, setTxAmount] = useState("");
   const [txDescription, setTxDescription] = useState("");
+  const [txStaffId, setTxStaffId] = useState("");
   const [txLoading, setTxLoading] = useState(false);
   const [txError, setTxError] = useState("");
 
@@ -165,6 +174,7 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
           type: txType,
           amount,
           description: txDescription.trim(),
+          staffId: txType === "CREDIT" && txStaffId !== "" ? txStaffId : null,
         }),
       });
 
@@ -174,6 +184,7 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
       } else {
         setTxAmount("");
         setTxDescription("");
+        setTxStaffId("");
         fetchSheets();
       }
     } catch {
@@ -467,16 +478,16 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-green-500 uppercase tracking-wider">
-                        Total Debits
+                      <p className="text-[10px] font-bold text-green-500 uppercase tracking-wider select-none opacity-0">
+                        &nbsp;
                       </p>
                       <p className="text-sm font-bold text-green-600">
                         + {formatINR(stats.debits)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">
-                        Total Credits
+                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider select-none opacity-0">
+                        &nbsp;
                       </p>
                       <p className="text-sm font-bold text-rose-600">
                         - {formatINR(stats.credits)}
@@ -536,26 +547,26 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
                   <div className="px-6 py-6 bg-slate-50/50 border-t border-slate-100">
                     <div className="max-w-4xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                       {/* Outer Card header */}
-                      <div className="bg-slate-900 px-6 py-5 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="bg-slate-50 border-b border-slate-200 px-6 py-5 text-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
                             Daily Cash Sheet Ledger
                           </p>
-                          <h3 className="text-xl font-bold mt-0.5">{sheet.branch.name} Branch</h3>
+                          <h3 className="text-xl font-bold text-slate-900 mt-0.5">{sheet.branch.name} Branch</h3>
                         </div>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-left sm:text-right">
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                               Statement Date
                             </p>
-                            <p className="text-sm font-extrabold">{formatDateDisplay(sheet.date)}</p>
+                            <p className="text-sm font-extrabold text-slate-900">{formatDateDisplay(sheet.date)}</p>
                           </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setConfirmDeleteId(sheet.id);
                             }}
-                            className="rounded-lg bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition shrink-0"
+                            className="rounded-lg border border-slate-200 bg-white hover:bg-rose-50 px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-rose-600 hover:border-rose-200 shadow-sm transition shrink-0"
                           >
                             Delete Sheet
                           </button>
@@ -650,16 +661,16 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
                                   <tr key={tx.id} className="hover:bg-slate-50/35 transition">
                                     <td className="px-6 py-3.5 text-slate-500 font-medium">{idx + 1}</td>
                                     <td className="px-6 py-3.5 text-slate-900 font-bold">{tx.description}</td>
-                                    <td className="px-6 py-3.5 text-right font-bold text-green-600">
+                                    <td className="px-6 py-3.5 text-right font-semibold text-emerald-700">
                                       {tx.type === "DEBIT" ? formatINR(tx.amount) : ""}
                                     </td>
-                                    <td className="px-6 py-3.5 text-right font-bold text-rose-600">
+                                    <td className="px-6 py-3.5 text-right font-semibold text-rose-700">
                                       {tx.type === "CREDIT" ? formatINR(tx.amount) : ""}
                                     </td>
                                     <td className="px-6 py-3.5 text-center">
                                       <button
                                         onClick={() => handleDeleteTransaction(sheet.id, tx.id)}
-                                        className="text-rose-500 hover:text-rose-700 transition p-1"
+                                        className="text-slate-400 hover:text-rose-600 transition p-1"
                                         title="Delete entry"
                                       >
                                         <svg
@@ -686,7 +697,7 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
                               <td colSpan={2} className="px-6 py-3 font-extrabold text-slate-700">
                                 Totals
                               </td>
-                              <td className="px-6 py-3 text-right font-extrabold text-green-700">
+                              <td className="px-6 py-3 text-right font-extrabold text-emerald-700">
                                 {formatINR(stats.debits)}
                               </td>
                               <td className="px-6 py-3 text-right font-extrabold text-rose-700">
@@ -701,55 +712,89 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
                       {/* Add Transaction Form */}
                       <form
                         onSubmit={(e) => handleAddTransaction(e, sheet.id)}
-                        className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row md:items-end gap-3 text-xs"
+                        className="bg-slate-50 px-6 py-4 border-t border-slate-100 space-y-3 text-xs"
                       >
-                        <div className="flex-1 min-w-[200px]">
-                          <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
-                            Description
-                          </label>
-                          <input
-                            type="text"
-                            value={txDescription}
-                            onChange={(e) => setTxDescription(e.target.value)}
-                            placeholder="e.g. Received from customer / Office expenses"
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
-                          />
+                        <div className="flex flex-col md:flex-row md:items-end gap-3">
+                          <div className="flex-1 min-w-[200px]">
+                            <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
+                              Description
+                            </label>
+                            <input
+                              type="text"
+                              value={txDescription}
+                              onChange={(e) => setTxDescription(e.target.value)}
+                              placeholder="e.g. Received from customer / Office expenses"
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
+                            />
+                          </div>
+                          <div className="w-full md:w-36 font-semibold">
+                            <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
+                              Type
+                            </label>
+                            <select
+                              value={txType}
+                              onChange={(e) => setTxType(e.target.value as "CREDIT" | "DEBIT")}
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
+                            >
+                              <option value="DEBIT">Debit (Received)</option>
+                              <option value="CREDIT">Credit (Spent)</option>
+                            </select>
+                          </div>
+                          <div className="w-full md:w-32">
+                            <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
+                              Amount (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={txAmount}
+                              onChange={(e) => setTxAmount(e.target.value)}
+                              placeholder="0.00"
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
+                            />
+                          </div>
+                          <div className="shrink-0 w-full md:w-auto">
+                            <button
+                              type="submit"
+                              disabled={txLoading}
+                              className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 text-xs transition disabled:opacity-50 h-[34px] flex items-center justify-center"
+                            >
+                              {txLoading ? "Adding..." : "+ Add Entry"}
+                            </button>
+                          </div>
                         </div>
-                        <div className="w-full md:w-36 font-semibold">
-                          <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
-                            Type
-                          </label>
-                          <select
-                            value={txType}
-                            onChange={(e) => setTxType(e.target.value as "CREDIT" | "DEBIT")}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
-                          >
-                            <option value="DEBIT">Debit (Received)</option>
-                            <option value="CREDIT">Credit (Spent)</option>
-                          </select>
-                        </div>
-                        <div className="w-full md:w-32">
-                          <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
-                            Amount (₹)
-                          </label>
-                          <input
-                            type="number"
-                            step="any"
-                            value={txAmount}
-                            onChange={(e) => setTxAmount(e.target.value)}
-                            placeholder="0.00"
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
-                          />
-                        </div>
-                        <div className="shrink-0 w-full md:w-auto">
-                          <button
-                            type="submit"
-                            disabled={txLoading}
-                            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 text-xs transition disabled:opacity-50 h-[34px] flex items-center justify-center"
-                          >
-                            {txLoading ? "Adding..." : "+ Add Entry"}
-                          </button>
-                        </div>
+
+                        {/* Employee Payout Dropdown */}
+                        {txType === "CREDIT" && (
+                          <div className="max-w-md">
+                            <label className="mb-1 block font-bold text-slate-500 uppercase tracking-wider">
+                              Paid to Employee / Salary Payment (Optional)
+                            </label>
+                            <select
+                              value={txStaffId}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTxStaffId(val);
+                                if (val) {
+                                  const emp = staff.find((s) => s.id === val);
+                                  if (emp && !txDescription.trim()) {
+                                    setTxDescription(`Salary Payout: ${emp.name}`);
+                                  }
+                                }
+                              }}
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none ring-blue-500/20 focus:ring-4 transition"
+                            >
+                              <option value="">No Employee linked</option>
+                              {staff
+                                .filter((s) => s.branchId === sheet.branchId)
+                                .map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.name} ({s.role})
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
                       </form>
                       {txError && (
                         <div className="bg-rose-50 px-6 py-2 text-xs font-semibold text-rose-600 border-t border-rose-100">
@@ -758,11 +803,11 @@ export function AdminCashSheetsClient({ branches }: AdminCashSheetsClientProps) 
                       )}
 
                       {/* Closing Balance summary banner */}
-                      <div className="flex items-center justify-between px-6 py-4.5 border-t-2 border-slate-900 bg-slate-900 text-white">
-                        <span className="text-xs font-black uppercase tracking-wider">
+                      <div className="flex items-center justify-between px-6 py-5 border-t border-slate-200 bg-slate-50 text-slate-800">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                           Closing Balance
                         </span>
-                        <span className="text-xl font-black">
+                        <span className="text-xl font-black text-slate-900">
                           {formatINR(sheet.openingBalance + stats.debits - stats.credits)}
                         </span>
                       </div>

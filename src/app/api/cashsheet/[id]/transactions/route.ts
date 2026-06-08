@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const session = await requireBranchManager();
     const { id } = await params;
     const body = await request.json();
-    const { type, amount, description } = body;
+    const { type, amount, description, staffId } = body;
 
     if (!type || !["CREDIT", "DEBIT"].includes(type)) {
       return NextResponse.json(
@@ -60,6 +60,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         type,
         amount,
         description: description.trim(),
+        staffId: staffId && staffId !== "" ? staffId : null,
       },
     });
 

@@ -18,30 +18,32 @@ enum ReportStatus {
 }
 
 model Branch {
-  id           String         @id @default(cuid())
-  name         String         @unique
+  id           String              @id @default(cuid())
+  name         String              @unique
   city         String
-  createdAt    DateTime       @default(now())
+  createdAt    DateTime            @default(now())
   users        User[]
   reports      DailyReport[]
   saleReports  SaleReport[]
   staff        Staff[]
   vehicleStock VehicleStock[]
   cashSheets   CashSheet[]
+  expenses     DealershipExpense[]
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String              @id @default(cuid())
+  email        String              @unique
   passwordHash String
   name         String
   role         Role
   branchId     String?
-  branch       Branch?       @relation(fields: [branchId], references: [id])
+  branch       Branch?             @relation(fields: [branchId], references: [id])
   reports      DailyReport[]
   saleReports  SaleReport[]
   cashSheets   CashSheet[]
-  createdAt    DateTime      @default(now())
+  expenses     DealershipExpense[]
+  createdAt    DateTime            @default(now())
 }
 
 model DailyReport {
@@ -114,17 +116,19 @@ model SaleReport {
 }
 
 model Staff {
-  id        String       @id @default(cuid())
-  name      String
-  role      String       // e.g. "Sales Consultant", "Service Tech", "Security"
-  salary    Float        @default(0)
-  active    Boolean      @default(true)
-  branchId  String
-  branch    Branch       @relation(fields: [branchId], references: [id])
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id           String              @id @default(cuid())
+  name         String
+  role         String              // e.g. "Sales Consultant", "Service Tech", "Security"
+  salary       Float               @default(0)
+  active       Boolean             @default(true)
+  branchId     String
+  branch       Branch              @relation(fields: [branchId], references: [id])
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
   
-  attendance Attendance[]
+  attendance   Attendance[]
+  expenses     DealershipExpense[]
+  transactions CashTransaction[]
 }
 
 model Attendance {
@@ -197,5 +201,24 @@ model CashTransaction {
   type        String    // "CREDIT" or "DEBIT"
   amount      Float
   description String
+  staffId     String?
+  staff       Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
+}
+
+model DealershipExpense {
+  id            String    @id @default(cuid())
+  date          DateTime
+  title         String
+  description   String?
+  amount        Float
+  category      String    // e.g. "Rent", "Utilities", "Marketing", "Inventory", "Salaries", "Taxes", "Other"
+  recordedById  String
+  recordedBy    User      @relation(fields: [recordedById], references: [id])
+  branchId      String?
+  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  staffId       String?
+  staff         Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
