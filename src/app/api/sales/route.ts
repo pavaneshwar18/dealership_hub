@@ -238,19 +238,11 @@ export async function POST(request: Request) {
               <p style="margin: 6px 0;"><strong>Model:</strong> ${modelName} ${modelVariant ? `(${modelVariant})` : ""}</p>
               <p style="margin: 6px 0;"><strong>Chassis Number:</strong> ${chassisNumber}</p>
               <p style="margin: 6px 0;"><strong>Engine Number:</strong> ${engineNumber}</p>
-
-              <h3 style="color: #1e3a8a; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-top: 24px;">Transaction Details</h3>
-              <p style="margin: 6px 0;"><strong>Total Amount:</strong> ₹${totalAmount.toLocaleString("en-IN")}</p>
-              <p style="margin: 6px 0;"><strong>Amount Paid (Down Payment):</strong> ₹${downPayment.toLocaleString("en-IN")}</p>
-              <p style="margin: 6px 0;"><strong>Payment Type:</strong> ${paymentType}</p>
-              <p style="margin: 6px 0;"><strong>Payment Mode:</strong> ${paymentMode} ${paymentMode === "Both" ? `(Cash: ₹${cashAmount.toLocaleString("en-IN")}, Bank: ₹${bankAmount.toLocaleString("en-IN")})` : ""}</p>
-              ${paymentType === "Finance" ? `<p style="margin: 6px 0;"><strong>Financer:</strong> ${finalFinancer} (Finance Amount: ₹${finalFinanceAmount.toLocaleString("en-IN")})</p>` : ""}
-              
               <h3 style="color: #1e3a8a; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-top: 24px;">Additional Info</h3>
               <p style="margin: 6px 0;"><strong>Branch Location:</strong> ${branch?.name || "Unknown Branch"}</p>
               <p style="margin: 6px 0;"><strong>Sales Executive:</strong> ${salesExecutiveName}</p>
-              <p style="margin: 6px 0;"><strong>Exchange:</strong> ${hasExchange ? `Yes (${exchangeModel}, Year: ${exchangeYear}, Valuation: ₹${exchangeAmount.toLocaleString("en-IN")})` : "No"}</p>
-              <p style="margin: 6px 0;"><strong>Hand Loan:</strong> ${hasHandLoan ? `Yes (Amount: ₹${handLoanAmount.toLocaleString("en-IN")})` : "No"}</p>
+              <p style="margin: 6px 0;"><strong>Exchange:</strong> ${hasExchange ? `Yes (${exchangeModel}, Year: ${exchangeYear})` : "No"}</p>
+              <p style="margin: 6px 0;"><strong>Hand Loan:</strong> ${hasHandLoan ? "Yes" : "No"}</p>
             </div>
             <div style="background-color: #f8fafc; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9;">
               This is an automated report. Uploaded documents are attached.
