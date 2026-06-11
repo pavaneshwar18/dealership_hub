@@ -148,6 +148,47 @@ export async function PUT(request: Request, context: RouteContext) {
     aadhaarImagePath = `aadhaar/${filename}`;
   }
 
+  // Handle Additional documents sync/replacement
+  let additionalDocs = existing.additionalDocs;
+  const existingDocsStr = formData.get("existingDocs") as string | null;
+  if (existingDocsStr) {
+    const keptDocs = JSON.parse(existingDocsStr) as string[];
+    // Find removed docs and delete them from disk
+    const removedDocs = existing.additionalDocs.filter((d) => !keptDocs.includes(d));
+    for (const docPath of removedDocs) {
+      try {
+        await unlink(path.join(process.cwd(), "uploads", docPath));
+      } catch (err) {
+        // ignore
+      }
+    }
+    additionalDocs = keptDocs;
+  }
+
+  // Save newly uploaded files
+  const additionalFiles = formData.getAll("additionalDocs") as File[];
+  if (additionalFiles && additionalFiles.length > 0) {
+    const allowedDocs = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    const docsUploadDir = path.join(process.cwd(), "uploads", "documents");
+    await mkdir(docsUploadDir, { recursive: true });
+
+    for (const file of additionalFiles) {
+      if (file.size === 0) continue;
+      if (file.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: "Each additional document must be under 5 MB" }, { status: 400 });
+      }
+      if (!allowedDocs.includes(file.type)) {
+        return NextResponse.json({ error: "Additional documents must be PDF, JPEG, PNG, or WebP" }, { status: 400 });
+      }
+      const ext = file.type === "application/pdf" ? "pdf" : file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
+      const filename = `${randomUUID()}.${ext}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const filePath = path.join(docsUploadDir, filename);
+      await writeFile(filePath, buffer);
+      additionalDocs.push(`documents/${filename}`);
+    }
+  }
+
   const finalFinancer = paymentType === "Self" ? "Self" : financer;
   const finalFinanceAmount = paymentType === "Self" ? 0 : financeAmount;
 
@@ -179,6 +220,7 @@ export async function PUT(request: Request, context: RouteContext) {
       cashAmount,
       bankAmount,
       aadhaarImagePath,
+      additionalDocs,
       hasExchange,
       exchangeAmount: hasExchange ? exchangeAmount : 0,
       exchangeModel: hasExchange ? exchangeModel : null,
@@ -306,6 +348,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
       await unlink(path.join(process.cwd(), "uploads", existing.aadhaarImagePath));
     } catch {
       // ignore
+    }
+  }
+
+  // Delete all additional documents if they exist
+  if (existing.additionalDocs && existing.additionalDocs.length > 0) {
+    for (const docPath of existing.additionalDocs) {
+      try {
+        await unlink(path.join(process.cwd(), "uploads", docPath));
+      } catch {
+        // ignore
+      }
     }
   }
 

@@ -41,6 +41,7 @@ type SaleReportFormProps = {
     hasHandLoan?: boolean;
     handLoanAmount?: number;
     salesExecutiveId?: string | null;
+    additionalDocs?: string[] | null;
   };
 };
 
@@ -78,6 +79,55 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, staff, initial
   const [hasHandLoan, setHasHandLoan] = useState<boolean>(initialValues?.hasHandLoan ?? false);
   const [handLoanAmount, setHandLoanAmount] = useState<number>(initialValues?.handLoanAmount ?? 0);
   const [salesExecutiveId, setSalesExecutiveId] = useState<string>(initialValues?.salesExecutiveId ?? "");
+
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
+  const [existingDocs, setExistingDocs] = useState<string[]>(
+    initialValues?.additionalDocs ?? []
+  );
+
+  function handleAdditionalFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    addAdditionalFiles(Array.from(files));
+  }
+
+  function addAdditionalFiles(files: File[]) {
+    const validFiles: File[] = [];
+    let err = "";
+
+    files.forEach((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        err = "Each additional document must be under 5 MB";
+        return;
+      }
+      const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (!allowed.includes(file.type)) {
+        err = "Documents must be PDF, JPEG, PNG, or WebP";
+        return;
+      }
+      validFiles.push(file);
+    });
+
+    if (err) {
+      setError(err);
+    }
+    setAdditionalFiles((prev) => [...prev, ...validFiles]);
+  }
+
+  function removeAdditionalFile(index: number) {
+    setAdditionalFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function removeExistingDoc(index: number) {
+    setExistingDocs((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleAdditionalDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (!files) return;
+    addAdditionalFiles(Array.from(files));
+  }
 
   const staffList = staff || [];
 
@@ -254,6 +304,11 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, staff, initial
     if (aadhaarFile) {
       formData.set("aadhaarImage", aadhaarFile);
     }
+
+    additionalFiles.forEach((file) => {
+      formData.append("additionalDocs", file);
+    });
+    formData.set("existingDocs", JSON.stringify(existingDocs));
 
     const url = reportId ? `/api/sales/${reportId}` : "/api/sales";
     const res = await fetch(url, {
@@ -738,6 +793,92 @@ export function SaleReportForm({ reportId, redirectUrl, branchId, staff, initial
             className="absolute inset-0 cursor-pointer opacity-0"
           />
         </div>
+      </section>
+
+      {/* Additional Documents Upload */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-5 text-lg font-semibold text-slate-900">Additional Sales Documents</h2>
+        
+        {/* Existing Docs */}
+        {existingDocs.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploaded Documents</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {existingDocs.map((doc, idx) => {
+                const parts = doc.split("/");
+                const name = parts[parts.length - 1];
+                return (
+                  <div key={idx} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                    <a href={`/api/uploads/${doc}`} target="_blank" rel="noreferrer" className="truncate hover:underline text-blue-600">
+                      {name}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeExistingDoc(idx)}
+                      className="text-rose-500 hover:text-rose-700 text-xs font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleAdditionalDrop}
+          className="relative flex min-h-[140px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50/50"
+        >
+          <div className="space-y-2">
+            <svg
+              className="mx-auto h-8 w-8 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+              />
+            </svg>
+            <p className="text-sm font-medium text-slate-600">
+              Drag &amp; drop other files here, or click to upload
+            </p>
+            <p className="text-xs text-slate-400">PDF, JPEG, PNG, or WebP · Max 5 MB each</p>
+          </div>
+          <input
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={handleAdditionalFilesChange}
+            className="absolute inset-0 cursor-pointer opacity-0"
+          />
+        </div>
+
+        {/* Selected Files List */}
+        {additionalFiles.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Selected Files</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {additionalFiles.map((file, idx) => (
+                <div key={idx} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm">
+                  <span className="truncate pr-2">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  <button
+                    type="button"
+                    onClick={() => removeAdditionalFile(idx)}
+                    className="text-rose-500 hover:text-rose-700 text-xs font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {error ? (
