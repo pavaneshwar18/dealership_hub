@@ -37,12 +37,7 @@ export default async function LoginPage() {
             <div className="mt-8">
               <LoginForm />
             </div>
-            <div className="mt-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-500">
-              <p className="font-semibold text-slate-700">Demo accounts</p>
-              <p>Admin: admin@bajajdealership.in</p>
-              <p>Branch: miryalaguda@bajajdealership.in (and other branch names)</p>
-              <p>Password: changeme123</p>
-            </div>
+
           </section>
         </div>
       </div>
