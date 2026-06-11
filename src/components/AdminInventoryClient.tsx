@@ -111,6 +111,129 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
   const [formSuccess, setFormSuccess] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
+  // AI Ingestion State
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadBranchId, setUploadBranchId] = useState(branches[0]?.id || "");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const [bulkSuccess, setBulkSuccess] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  
+  type ParsedVehicle = {
+    tempId: string;
+    chassisNumber: string;
+    engineNumber: string;
+    modelName: string;
+    modelVariant: string | null;
+  };
+  const [parsedVehicles, setParsedVehicles] = useState<ParsedVehicle[]>([]);
+
+  async function handleScanInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedFile) {
+      setScanError("Please select a file to upload.");
+      return;
+    }
+    setIsScanning(true);
+    setScanError("");
+    setBulkSuccess("");
+    setParsedVehicles([]);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await fetch("/api/inventory/upload-invoice", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setScanError(data.error ?? "Failed to parse the invoice.");
+        return;
+      }
+
+      if (!data.vehicles || data.vehicles.length === 0) {
+        setScanError("No vehicles could be extracted from this invoice. Please check the layout or upload manually.");
+        return;
+      }
+
+      const tempVehicles = data.vehicles.map((v: any, index: number) => ({
+        tempId: `${Date.now()}-${index}`,
+        chassisNumber: (v.chassisNumber || "").toUpperCase(),
+        engineNumber: (v.engineNumber || "").toUpperCase(),
+        modelName: v.modelName || "",
+        modelVariant: v.modelVariant || "",
+      }));
+
+      setParsedVehicles(tempVehicles);
+    } catch {
+      setScanError("Connection error. Could not connect to the scan server.");
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  async function handleBulkRegister() {
+    setBulkLoading(true);
+    setScanError("");
+    setBulkSuccess("");
+
+    for (const v of parsedVehicles) {
+      if (!v.chassisNumber.trim() || !v.engineNumber.trim() || !v.modelName.trim()) {
+        setScanError("Chassis number, engine number, and model name are required for all vehicles.");
+        setBulkLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/inventory/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicles: parsedVehicles,
+          branchId: uploadBranchId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setScanError(data.error ?? "Failed to register stock in bulk.");
+        return;
+      }
+
+      const targetBranch = branches.find((b) => b.id === uploadBranchId);
+      const formattedItems = data.items.map((item: any) => ({
+        ...item,
+        receivedDate: item.receivedDate.slice(0, 10),
+        branchName: targetBranch ? targetBranch.name : "Unknown",
+      }));
+
+      setStock((prev) => [...formattedItems, ...prev]);
+      setBulkSuccess(`Successfully registered ${data.count} vehicles at ${targetBranch?.name || "depot"}!`);
+      setParsedVehicles([]);
+      setSelectedFile(null);
+    } catch {
+      setScanError("A connection error occurred while submitting stock in bulk.");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  function updateParsedVehicleField(tempId: string, field: keyof ParsedVehicle, value: string) {
+    setParsedVehicles((prev) =>
+      prev.map((v) => (v.tempId === tempId ? { ...v, [field]: value } : v))
+    );
+  }
+
+  // Use a different name to avoid collision with standard single item delete
+  function removeParsedVehicleRow(tempId: string) {
+    setParsedVehicles((prev) => prev.filter((v) => v.tempId !== tempId));
+  }
+
   // Table Filters State
   const [filterBranchId, setFilterBranchId] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("AVAILABLE");
@@ -370,16 +493,32 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
           <p className="mt-2 text-slate-500">Track showroom available stock, arrival aging, and branch allocations</p>
         </div>
         {activeTab === "new" && (
-          <button
-            onClick={() => {
-              setShowAddForm(!showAddForm);
-              setFormError("");
-              setFormSuccess("");
-            }}
-            className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 self-start transition shadow-sm"
-          >
-            {showAddForm ? "Hide Intake Panel" : "+ Register Stock Invoice"}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2.5 self-start">
+            <button
+              onClick={() => {
+                setShowAddForm(!showAddForm);
+                setShowUploadForm(false);
+                setFormError("");
+                setFormSuccess("");
+              }}
+              className="rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-250 px-4 py-2.5 text-sm font-semibold text-slate-800 transition shadow-sm"
+            >
+              {showAddForm ? "Hide Intake Form" : "Register Stock"}
+            </button>
+            <button
+              onClick={() => {
+                setShowUploadForm(!showUploadForm);
+                setShowAddForm(false);
+                setScanError("");
+                setBulkSuccess("");
+                setParsedVehicles([]);
+                setSelectedFile(null);
+              }}
+              className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 transition shadow-sm"
+            >
+              {showUploadForm ? "Hide Upload Panel" : "Upload Stock Invoice"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -588,6 +727,187 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
             </button>
           </div>
         </form>
+      )}
+
+      {/* AI Invoice Import Panel */}
+      {activeTab === "new" && showUploadForm && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6 transition-all duration-300">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Invoice Intake
+            </h2>
+            <p className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">Gemini OCR Scanner</p>
+          </div>
+
+          {scanError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+              {scanError}
+            </div>
+          )}
+          {bulkSuccess && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+              {bulkSuccess}
+            </div>
+          )}
+
+          <form onSubmit={handleScanInvoice} className="grid gap-6 sm:grid-cols-3 items-end">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">Target Arrival Depot *</span>
+              <select
+                value={uploadBranchId}
+                onChange={(e) => setUploadBranchId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+                required
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">Select Invoice File (PDF, Image) *</span>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setSelectedFile(e.target.files[0]);
+                  }
+                }}
+                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                required
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={isScanning || !selectedFile}
+              className="w-full rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isScanning ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Scanning Invoice...
+                </>
+              ) : (
+                "Scan & Extract Stock"
+              )}
+            </button>
+          </form>
+
+          {/* Verification Table */}
+          {parsedVehicles.length > 0 && (
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-md font-bold text-slate-900">Scan Results: Review Extracted Vehicles</h3>
+                  <p className="text-xs text-slate-500">Correct any scanning errors or mismatching models below before registering them to the inventory.</p>
+                </div>
+                <span className="inline-flex self-start items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                  {parsedVehicles.length} Vehicles Detected
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2.5 font-semibold">Chassis Number</th>
+                      <th className="px-3 py-2.5 font-semibold">Engine Number</th>
+                      <th className="px-3 py-2.5 font-semibold">Model Name</th>
+                      <th className="px-3 py-2.5 font-semibold">Variant (Optional)</th>
+                      <th className="px-3 py-2.5 font-semibold text-center w-16">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {parsedVehicles.map((v) => (
+                      <tr key={v.tempId} className="hover:bg-slate-50/20">
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={v.chassisNumber}
+                            onChange={(e) => updateParsedVehicleField(v.tempId, "chassisNumber", e.target.value.toUpperCase())}
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none ring-blue-500 focus:ring-1 uppercase font-mono font-medium"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={v.engineNumber}
+                            onChange={(e) => updateParsedVehicleField(v.tempId, "engineNumber", e.target.value.toUpperCase())}
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none ring-blue-500 focus:ring-1 uppercase font-mono"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={v.modelName}
+                            onChange={(e) => updateParsedVehicleField(v.tempId, "modelName", e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none ring-blue-500 focus:ring-1 bg-white font-semibold"
+                          >
+                            <option value="">Select Model</option>
+                            {VEHICLE_MODELS.map((m) => (
+                              <option key={m.name} value={m.name}>{m.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            placeholder="None"
+                            value={v.modelVariant || ""}
+                            onChange={(e) => updateParsedVehicleField(v.tempId, "modelVariant", e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none ring-blue-500 focus:ring-1"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeParsedVehicleRow(v.tempId)}
+                            className="text-rose-600 hover:text-rose-800 transition"
+                            title="Remove this item"
+                          >
+                            <svg className="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setParsedVehicles([])}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Clear Results
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkLoading}
+                  onClick={handleBulkRegister}
+                  className="rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-800 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  {bulkLoading ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Registering...
+                    </>
+                  ) : (
+                    `Confirm & Register ${parsedVehicles.length} Vehicles`
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Filter Control Bar */}
