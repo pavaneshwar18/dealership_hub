@@ -86,6 +86,16 @@ export async function POST(request: Request) {
   const vehicleStockId = formData.get("vehicleStockId") as string | null;
   const salesExecutiveId = formData.get("salesExecutiveId") as string | null;
 
+  let isPending = false;
+  if (vehicleStockId) {
+    const vehicle = await prisma.vehicleStock.findUnique({
+      where: { id: vehicleStockId }
+    });
+    if (vehicle && totalAmount < vehicle.mrpAmount) {
+      isPending = true;
+    }
+  }
+
   const saleReport = await prisma.saleReport.create({
     data: {
       branchId: session.branchId,
@@ -111,6 +121,7 @@ export async function POST(request: Request) {
       hasHandLoan,
       handLoanAmount,
       salesExecutiveId: salesExecutiveId || null,
+      status: isPending ? "PENDING" : "APPROVED",
       exchangeVehicle: hasExchange ? {
         create: {
           modelName: exchangeModel || "Unknown Model",
@@ -128,7 +139,7 @@ export async function POST(request: Request) {
     await prisma.vehicleStock.update({
       where: { id: vehicleStockId },
       data: {
-        status: "SOLD",
+        status: isPending ? "PENDING_SALE" : "SOLD",
         saleReportId: saleReport.id,
       },
     });

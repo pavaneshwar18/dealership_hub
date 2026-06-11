@@ -155,6 +155,13 @@ export async function PUT(request: Request, context: RouteContext) {
     ? (formData.get("salesExecutiveId") as string) || null
     : existing.salesExecutiveId;
 
+  const status = formData.has("status")
+    ? (formData.get("status") as any)
+    : existing.status;
+  const adminComment = formData.has("adminComment")
+    ? (formData.get("adminComment") as string | null)
+    : existing.adminComment;
+
   const report = await prisma.saleReport.update({
     where: { id },
     data: {
@@ -179,6 +186,8 @@ export async function PUT(request: Request, context: RouteContext) {
       hasHandLoan,
       handLoanAmount: hasHandLoan ? handLoanAmount : 0,
       salesExecutiveId,
+      status,
+      adminComment,
       ...(createdAt ? { createdAt } : {}),
     },
   });
@@ -221,6 +230,8 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   const vehicleStockId = formData.get("vehicleStockId") as string | null;
+  const targetStatus = report.status;
+
   if (formData.has("vehicleStockId")) {
     const oldStock = await prisma.vehicleStock.findFirst({
       where: { saleReportId: id },
@@ -236,11 +247,38 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     if (vehicleStockId) {
+      let nextStockStatus: any = "SOLD";
+      if (targetStatus === "PENDING") {
+        nextStockStatus = "PENDING_SALE";
+      } else if (targetStatus === "REJECTED") {
+        nextStockStatus = "AVAILABLE";
+      }
+
       await prisma.vehicleStock.update({
         where: { id: vehicleStockId },
         data: {
-          status: "SOLD",
-          saleReportId: id,
+          status: nextStockStatus,
+          saleReportId: targetStatus === "REJECTED" ? null : id,
+        },
+      });
+    }
+  } else if (formData.has("status")) {
+    const currentStock = await prisma.vehicleStock.findFirst({
+      where: { saleReportId: id },
+    });
+    if (currentStock) {
+      let nextStockStatus: any = "SOLD";
+      if (targetStatus === "PENDING") {
+        nextStockStatus = "PENDING_SALE";
+      } else if (targetStatus === "REJECTED") {
+        nextStockStatus = "AVAILABLE";
+      }
+
+      await prisma.vehicleStock.update({
+        where: { id: currentStock.id },
+        data: {
+          status: nextStockStatus,
+          saleReportId: targetStatus === "REJECTED" ? null : id,
         },
       });
     }

@@ -123,6 +123,9 @@ model SaleReport {
   salesExecutiveId   String?
   salesExecutive     Staff?   @relation(fields: [salesExecutiveId], references: [id], onDelete: SetNull)
 
+  status             SaleStatus @default(APPROVED)
+  adminComment       String?
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -166,7 +169,14 @@ model Attendance {
 
 enum StockStatus {
   AVAILABLE
+  PENDING_SALE
   SOLD
+}
+
+enum SaleStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model VehicleStock {
@@ -178,6 +188,8 @@ model VehicleStock {
   color         String?
   status        StockStatus @default(AVAILABLE)
   receivedDate  DateTime    @default(now())
+  invoiceBillAmount Float   @default(0)
+  mrpAmount         Float   @default(0)
 
   // Location
   branchId      String
@@ -259,5 +271,17 @@ model ExchangeVehicle {
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+}
+
+model VehiclePriceConfig {
+  id            String   @id @default(cuid())
+  modelName     String
+  modelVariant  String   @default("") // Empty string represents no variant (Standard)
+  invoiceAmount Float    @default(0)
+  mrpAmount     Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([modelName, modelVariant])
 }
 

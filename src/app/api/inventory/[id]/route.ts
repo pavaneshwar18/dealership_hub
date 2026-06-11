@@ -11,7 +11,7 @@ export async function PUT(request: Request, context: RouteContext) {
     await requireAdmin();
     const { id } = await context.params;
     const body = await request.json();
-    const { branchId, status, color } = body;
+    const { branchId, status, color, invoiceBillAmount, mrpAmount } = body;
 
     const existing = await prisma.vehicleStock.findUnique({
       where: { id }
@@ -25,6 +25,26 @@ export async function PUT(request: Request, context: RouteContext) {
     if (branchId) data.branchId = branchId;
     if (status) data.status = status;
     if (color) data.color = color;
+    if (invoiceBillAmount !== undefined) {
+      if (invoiceBillAmount === null || invoiceBillAmount === "" || isNaN(Number(invoiceBillAmount))) {
+        return NextResponse.json({ error: "Invoice bill amount must be a valid number" }, { status: 400 });
+      }
+      const parsedAmount = parseFloat(invoiceBillAmount);
+      if (parsedAmount < 0) {
+        return NextResponse.json({ error: "Invoice bill amount cannot be negative" }, { status: 400 });
+      }
+      data.invoiceBillAmount = parsedAmount;
+    }
+    if (mrpAmount !== undefined) {
+      if (mrpAmount === null || mrpAmount === "" || isNaN(Number(mrpAmount))) {
+        return NextResponse.json({ error: "MRP amount must be a valid number" }, { status: 400 });
+      }
+      const parsedMrp = parseFloat(mrpAmount);
+      if (parsedMrp < 0) {
+        return NextResponse.json({ error: "MRP amount cannot be negative" }, { status: 400 });
+      }
+      data.mrpAmount = parsedMrp;
+    }
 
     const updated = await prisma.vehicleStock.update({
       where: { id },

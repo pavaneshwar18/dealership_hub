@@ -30,10 +30,10 @@ export default async function AdminReportDetailPage({ params }: AdminReportDetai
             </p>
           </div>
           <Link
-            href="/admin/reports"
+            href="/admin"
             className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Back to all reports
+            Back to Overview
           </Link>
         </div>
 

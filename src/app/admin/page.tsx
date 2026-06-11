@@ -46,41 +46,39 @@ export default async function AdminPage() {
 
   return (
     <>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Admin overview</h1>
-          <p className="mt-2 text-slate-500">
-            All-branch snapshot for {formatDate(today)} · Vishnu Priya Automotives
-          </p>
-        </div>
-
-        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="Reports submitted" value={`${submittedCount}/5`} hint={`${pendingCount} pending`} accent={pendingCount ? "amber" : "green"} />
-          <StatCard label="Total vehicles sold" value={totals.vehiclesSold} />
-          <StatCard label="Total sales value" value={formatINR(totals.salesValue)} />
-          <StatCard label="Total service revenue" value={formatINR(totals.serviceRevenue)} />
-          <StatCard label="Cash collected" value={formatINR(totals.cashCollected)} accent="green" />
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Admin overview</h1>
+            <p className="mt-2 text-slate-500">
+              All-branch snapshot for {formatDate(today)} · Vishnu Priya Automotives
+            </p>
+          </div>
+          <div className="w-full sm:w-64">
+            <StatCard
+              label="Reports submitted"
+              value={`${submittedCount}/5`}
+              hint={`${pendingCount} pending`}
+              accent={pendingCount ? "amber" : "green"}
+            />
+          </div>
         </div>
 
         <section className="mb-10">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Branch submission status</h2>
-            <Link href="/admin/reports" className="text-sm font-medium text-blue-700 hover:underline">
-              View all reports
-            </Link>
-          </div>
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Branch submission status</h2>
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {branches.map((branch) => {
               const report = branch.reports[0];
               const submitted = Boolean(report);
 
-              return (
+              const cardContent = (
                 <article
-                  key={branch.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-blue-500 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">{branch.name}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                        {branch.name}
+                      </h3>
                       <p className="text-sm text-slate-500">{branch.city}</p>
                     </div>
                     <span
@@ -118,14 +116,6 @@ export default async function AdminPage() {
                           <p className="mt-1 line-clamp-2">{report.issues}</p>
                         </div>
                       ) : null}
-                      <div className="col-span-2">
-                        <Link
-                          href={`/admin/reports/${report.id}`}
-                          className="text-sm font-medium text-blue-700 hover:underline"
-                        >
-                          Open report
-                        </Link>
-                      </div>
                     </div>
                   ) : (
                     <p className="mt-4 text-sm text-slate-500">
@@ -133,6 +123,20 @@ export default async function AdminPage() {
                     </p>
                   )}
                 </article>
+              );
+
+              const href = submitted && report
+                ? `/admin/reports/${report.id}`
+                : `/admin/reports?branchId=${branch.id}`;
+
+              return (
+                <Link
+                  key={branch.id}
+                  href={href}
+                  className="group block h-full no-underline"
+                >
+                  {cardContent}
+                </Link>
               );
             })}
           </div>

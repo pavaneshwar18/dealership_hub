@@ -39,6 +39,8 @@ export default async function AdminSalesPage() {
     paymentMode: sale.paymentMode,
     cashAmount: sale.cashAmount,
     bankAmount: sale.bankAmount,
+    status: sale.status,
+    adminComment: sale.adminComment,
   }));
 
   const formattedBranches = branches.map((b) => ({

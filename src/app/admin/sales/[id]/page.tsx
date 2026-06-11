@@ -6,6 +6,7 @@ import { formatDate, formatINR } from "@/lib/format";
 import { formatModelDisplay } from "@/lib/models";
 import { SaleReportForm } from "@/components/SaleReportForm";
 import { AdminSaleDeleteButton } from "@/components/AdminSaleDeleteButton";
+import { AdminSaleApprovalControls } from "@/components/AdminSaleApprovalControls";
 
 type AdminSaleDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -131,6 +132,31 @@ export default async function AdminSaleDetailPage({
         </div>
       </div>
 
+      {sale.status === "PENDING" && sale.vehicleStock && (
+        <AdminSaleApprovalControls
+          saleId={sale.id}
+          customerName={sale.customerName}
+          totalAmount={sale.totalAmount}
+          mrpAmount={sale.vehicleStock.mrpAmount}
+        />
+      )}
+
+      {sale.status === "REJECTED" && (
+        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-rose-900 flex items-center gap-2">
+            Sale Rejected by Admin
+          </h2>
+          <p className="mt-1.5 text-sm text-rose-800">
+            This sale was rejected. The linked vehicle stock is now available for other sales.
+          </p>
+          {sale.adminComment && (
+            <div className="mt-3 rounded-xl bg-rose-100/50 p-3 text-rose-950 text-sm">
+              <strong className="font-semibold">Rejection Comment:</strong> {sale.adminComment}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Customer Info */}
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">Customer Information</h2>
@@ -168,6 +194,22 @@ export default async function AdminSaleDetailPage({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Sales Executive</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">
               {sale.salesExecutive?.name || "—"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Approval Status</p>
+            <p className="mt-1.5">
+              <span
+                className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                  sale.status === "APPROVED"
+                    ? "bg-green-50 text-green-700 border border-green-100"
+                    : sale.status === "PENDING"
+                    ? "bg-amber-50 text-amber-700 border border-amber-100 animate-pulse"
+                    : "bg-rose-50 text-rose-700 border border-rose-100"
+                }`}
+              >
+                {sale.status === "APPROVED" ? "Approved" : sale.status === "PENDING" ? "Pending Approval" : "Rejected"}
+              </span>
             </p>
           </div>
           {sale.vehicleStock && (

@@ -6,11 +6,41 @@ export async function POST(request: Request) {
   try {
     await requireAdmin();
     const body = await request.json();
-    const { chassisNumber, engineNumber, modelName, modelVariant, color, receivedDate } = body;
+    const { chassisNumber, engineNumber, modelName, modelVariant, color, receivedDate, invoiceBillAmount, mrpAmount } = body;
 
     if (!chassisNumber || !engineNumber || !modelName) {
       return NextResponse.json(
         { error: "Chassis number, engine number, and model name are required" },
+        { status: 400 }
+      );
+    }
+
+    if (invoiceBillAmount === undefined || invoiceBillAmount === null || invoiceBillAmount === "" || isNaN(Number(invoiceBillAmount))) {
+      return NextResponse.json(
+        { error: "Invoice bill amount is required and must be a valid number" },
+        { status: 400 }
+      );
+    }
+
+    const parsedInvoiceAmount = parseFloat(invoiceBillAmount);
+    if (parsedInvoiceAmount < 0) {
+      return NextResponse.json(
+        { error: "Invoice bill amount cannot be negative" },
+        { status: 400 }
+      );
+    }
+
+    if (mrpAmount === undefined || mrpAmount === null || mrpAmount === "" || isNaN(Number(mrpAmount))) {
+      return NextResponse.json(
+        { error: "MRP amount is required and must be a valid number" },
+        { status: 400 }
+      );
+    }
+
+    const parsedMrpAmount = parseFloat(mrpAmount);
+    if (parsedMrpAmount < 0) {
+      return NextResponse.json(
+        { error: "MRP amount cannot be negative" },
         { status: 400 }
       );
     }
@@ -60,6 +90,8 @@ export async function POST(request: Request) {
         modelVariant: modelVariant || null,
         color: color || null,
         receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+        invoiceBillAmount: parsedInvoiceAmount,
+        mrpAmount: parsedMrpAmount,
         branchId: branch.id
       }
     });

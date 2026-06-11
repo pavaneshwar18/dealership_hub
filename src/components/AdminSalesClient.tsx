@@ -20,6 +20,8 @@ type SaleItem = {
   paymentMode?: string;
   cashAmount?: number;
   bankAmount?: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminComment: string | null;
 };
 
 type BranchItem = {
@@ -54,6 +56,7 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
   const [selectedFinancer, setSelectedFinancer] = useState("ALL");
   const [selectedModel, setSelectedModel] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [exportOpen, setExportOpen] = useState(false);
 
   // Extract unique months dynamically from sales list (YYYY-MM), sorted descending
@@ -105,9 +108,12 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
       if (selectedModel !== "ALL" && sale.modelDisplay !== selectedModel) {
         return false;
       }
+      if (selectedStatus !== "ALL" && sale.status !== selectedStatus) {
+        return false;
+      }
       return true;
     });
-  }, [initialSales, selectedBranchId, selectedMonth, selectedFinancer, selectedModel]);
+  }, [initialSales, selectedBranchId, selectedMonth, selectedFinancer, selectedModel, selectedStatus]);
 
   const formatPeriodLabel = (p: string): string => {
     if (p === "ALL") return "All Months";
@@ -390,7 +396,7 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
       </div>
 
       {/* Filters Form Bar */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             Dealership Branch
@@ -467,6 +473,22 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
             ))}
           </select>
         </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Approval Status
+          </span>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING">Pending Approval</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </label>
       </div>
 
       {/* Reports Data Table */}
@@ -481,12 +503,13 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
               <th className="px-4 py-3.5 font-semibold">Total Amount</th>
               <th className="px-4 py-3.5 font-semibold">Finance Amount</th>
               <th className="px-4 py-3.5 font-semibold">Financer</th>
+              <th className="px-4 py-3.5 font-semibold">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredSales.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                   No sales reports found matching criteria.
                 </td>
               </tr>
@@ -524,6 +547,23 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
                     ) : (
                       sale.financer || "—"
                     )}
+                  </td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        sale.status === "APPROVED"
+                          ? "bg-green-50 text-green-700 border border-green-100"
+                          : sale.status === "PENDING"
+                          ? "bg-amber-50 text-amber-700 border border-amber-100 animate-pulse"
+                          : "bg-rose-50 text-rose-700 border border-rose-100"
+                      }`}
+                    >
+                      {sale.status === "APPROVED"
+                        ? "Approved"
+                        : sale.status === "PENDING"
+                        ? "Pending"
+                        : "Rejected"}
+                    </span>
                   </td>
                 </tr>
               ))

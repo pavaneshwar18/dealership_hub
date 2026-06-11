@@ -41,6 +41,34 @@ export default async function SaleDetailPage({ params }: SaleDetailPageProps) {
           </div>
         </div>
 
+        {sale.status === "PENDING" && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-amber-900 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+              Pending Approval
+            </h2>
+            <p className="mt-1 text-sm text-amber-800">
+              This sale report is currently awaiting Admin approval. It is locked and has not been finalized.
+            </p>
+          </div>
+        )}
+
+        {sale.status === "REJECTED" && (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-rose-900 flex items-center gap-2">
+              Sale Rejected by Admin
+            </h2>
+            <p className="mt-1 text-sm text-rose-800">
+              This sale report was rejected by the admin. The associated vehicle is now available for other sales.
+            </p>
+            {sale.adminComment && (
+              <div className="mt-3 rounded-xl bg-rose-100/50 p-3 text-rose-955 text-sm">
+                <strong className="font-semibold">Reason for Rejection:</strong> {sale.adminComment}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Customer Info */}
         <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-slate-900">Customer Information</h2>
@@ -78,6 +106,22 @@ export default async function SaleDetailPage({ params }: SaleDetailPageProps) {
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Sales Executive</p>
               <p className="mt-1 text-lg font-semibold text-slate-900">
                 {sale.salesExecutive?.name || "—"}
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Approval Status</p>
+              <p className="mt-1.5">
+                <span
+                  className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                    sale.status === "APPROVED"
+                      ? "bg-green-50 text-green-700 border border-green-100"
+                      : sale.status === "PENDING"
+                      ? "bg-amber-50 text-amber-700 border border-amber-100 animate-pulse"
+                      : "bg-rose-50 text-rose-700 border border-rose-100"
+                  }`}
+                >
+                  {sale.status === "APPROVED" ? "Approved" : sale.status === "PENDING" ? "Pending Approval" : "Rejected"}
+                </span>
               </p>
             </div>
             <div className="rounded-xl bg-slate-50 px-4 py-3">

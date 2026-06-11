@@ -124,6 +124,13 @@ export default async function AdminStaffDetailPage({ params }: AdminStaffDetailP
     name: b.name,
   }));
 
+  const formattedAttendance = staff.attendance.map((a) => ({
+    id: a.id,
+    date: a.date.toISOString(),
+    status: a.status,
+    notes: a.notes,
+  }));
+
   return (
     <>
       <AdminStaffDetailsClient
@@ -131,6 +138,7 @@ export default async function AdminStaffDetailPage({ params }: AdminStaffDetailP
         attendanceStats={attendanceStats}
         payments={payments}
         branches={formattedBranches}
+        attendance={formattedAttendance}
       />
     </>
   );

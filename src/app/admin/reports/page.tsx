@@ -3,20 +3,48 @@ import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDate, formatINR } from "@/lib/format";
 
-export default async function AdminReportsPage() {
+type AdminReportsPageProps = {
+  searchParams: Promise<{ branchId?: string }>;
+};
+
+export default async function AdminReportsPage({ searchParams }: AdminReportsPageProps) {
   const session = await requireAdmin();
+  const { branchId } = await searchParams;
+
+  const where = branchId ? { branchId } : {};
 
   const reports = await prisma.dailyReport.findMany({
+    where,
     orderBy: [{ date: "desc" }, { branch: { name: "asc" } }],
     include: { branch: true, submittedBy: true },
     take: 100,
   });
 
+  const filterBranch = branchId
+    ? await prisma.branch.findUnique({ where: { id: branchId } })
+    : null;
+
   return (
     <>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">All reports</h1>
-          <p className="mt-2 text-slate-500">Latest daily submissions from all five branches</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              {filterBranch ? `${filterBranch.name} Reports` : "All reports"}
+            </h1>
+            <p className="mt-2 text-slate-500">
+              {filterBranch
+                ? `Daily submissions history for ${filterBranch.name} branch`
+                : "Latest daily submissions from all five branches"}
+            </p>
+          </div>
+          {filterBranch && (
+            <Link
+              href="/admin"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 shrink-0"
+            >
+              Back to Overview
+            </Link>
+          )}
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatINR, formatDate } from "@/lib/format";
+import { formatINR, formatDate, todayIST, formatDateToISTString } from "@/lib/format";
 
 type BranchItem = {
   id: string;
   name: string;
+};
+
+type AttendanceItem = {
+  id: string;
+  date: string;
+  status: string;
+  notes?: string | null;
 };
 
 type StaffDetailsProps = {
@@ -43,14 +50,72 @@ type StaffDetailsProps = {
     recordedBy: string;
   }>;
   branches?: BranchItem[];
+  attendance?: AttendanceItem[];
 };
 
-export function AdminStaffDetailsClient({ staff, attendanceStats, payments, branches = [] }: StaffDetailsProps) {
+export function AdminStaffDetailsClient({
+  staff,
+  attendanceStats,
+  payments,
+  branches = [],
+  attendance = [],
+}: StaffDetailsProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"payments" | "attendance" | "profile" | "sales">("profile");
 
   // Local state for staff details to reflect updates dynamically
   const [staffData, setStaffData] = useState(staff);
+
+  // Date states for filtering attendance
+  const [fromDate, setFromDate] = useState(() => {
+    const istToday = todayIST();
+    const year = istToday.getFullYear();
+    const month = String(istToday.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}-01`;
+  });
+  const [toDate, setToDate] = useState(() => {
+    const istToday = todayIST();
+    const year = istToday.getFullYear();
+    const month = String(istToday.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}-${String(istToday.getDate()).padStart(2, "0")}`;
+  });
+
+  const handleResetDates = () => {
+    const istToday = todayIST();
+    const year = istToday.getFullYear();
+    const month = String(istToday.getMonth() + 1).padStart(2, "0");
+    setFromDate(`${year}-${month}-01`);
+    setToDate(`${year}-${month}-${String(istToday.getDate()).padStart(2, "0")}`);
+  };
+
+  // Filter attendance list
+  const filteredAttendance = useMemo(() => {
+    return attendance.filter((a) => {
+      const recordDateStr = formatDateToISTString(new Date(a.date));
+      const fromStr = fromDate;
+      const toStr = toDate;
+      const isAfterOrEqualFrom = !fromStr || recordDateStr >= fromStr;
+      const isBeforeOrEqualTo = !toStr || recordDateStr <= toStr;
+      return isAfterOrEqualFrom && isBeforeOrEqualTo;
+    });
+  }, [attendance, fromDate, toDate]);
+
+  // Compute metrics dynamically
+  const dynamicStats = useMemo(() => {
+    const totalDays = filteredAttendance.length;
+    const presentDays = filteredAttendance.filter((a) => a.status === "PRESENT").length;
+    const absentDays = filteredAttendance.filter((a) => a.status === "ABSENT").length;
+    const leaveDays = filteredAttendance.filter((a) => a.status === "LEAVE").length;
+    const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+    return {
+      totalDays,
+      presentDays,
+      absentDays,
+      leaveDays,
+      attendanceRate,
+    };
+  }, [filteredAttendance]);
 
   // Edit Modal States
   const [showModal, setShowModal] = useState(false);
@@ -390,33 +455,112 @@ export function AdminStaffDetailsClient({ staff, attendanceStats, payments, bran
         {/* ATTENDANCE TAB */}
         {activeTab === "attendance" && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3">Attendance Metrics</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-3">
+              <h2 className="text-lg font-bold text-slate-900">Attendance Metrics</h2>
+              <span className="text-xs font-bold text-slate-500">Filtered range: {fromDate ? formatDate(fromDate) : "Start"} to {toDate ? formatDate(toDate) : "End"}</span>
+            </div>
 
-            {/* Clean Info Grid (NO KPI Cards) */}
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5 bg-slate-50/50 p-5 rounded-xl border border-slate-100 text-xs font-semibold text-slate-600">
+            {/* Date Filter Controls */}
+            <div className="flex flex-col sm:flex-row gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="flex-1 w-full">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">From Date</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 bg-white"
+                />
+              </div>
+              <div className="flex-1 w-full">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">To Date</label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2 text-slate-900 bg-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleResetDates}
+                className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition h-[38px] flex items-center justify-center cursor-pointer shadow-xs"
+              >
+                Reset
+              </button>
+            </div>
+
+            {/* Dynamic Info Grid */}
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-5 bg-slate-50/50 p-5 rounded-xl border border-slate-100 text-xs font-semibold text-slate-600">
               <div className="space-y-1">
                 <span className="text-slate-400 block">Total Logs</span>
-                <span className="text-lg font-bold text-slate-900">{attendanceStats.totalDays} days</span>
+                <span className="text-lg font-bold text-slate-900">{dynamicStats.totalDays} days</span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-400 block">Present Logs</span>
-                <span className="text-lg font-bold text-green-700">{attendanceStats.presentDays} days</span>
+                <span className="text-lg font-bold text-green-700">{dynamicStats.presentDays} days</span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-400 block">Absent Logs</span>
-                <span className="text-lg font-bold text-rose-700">{attendanceStats.absentDays} days</span>
+                <span className="text-lg font-bold text-rose-700">{dynamicStats.absentDays} days</span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-400 block">On Leave</span>
-                <span className="text-lg font-bold text-amber-700">{attendanceStats.leaveDays} days</span>
+                <span className="text-lg font-bold text-amber-700">{dynamicStats.leaveDays} days</span>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 col-span-2 sm:col-span-1">
                 <span className="text-slate-400 block">Attendance Rate</span>
-                <span className="text-lg font-bold text-blue-700">{attendanceStats.attendanceRate}%</span>
+                <span className="text-lg font-bold text-blue-700">{dynamicStats.attendanceRate}%</span>
               </div>
             </div>
 
-            <div className="space-y-2">
+            {/* Attendance Logs Table */}
+            <div className="space-y-3 pt-2">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Attendance logs in period</h3>
+              {filteredAttendance.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 italic bg-slate-50/50 rounded-xl border border-slate-100 text-xs">
+                  No attendance records found for this period.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500">
+                      <tr>
+                        <th className="px-5 py-3 font-bold">Date</th>
+                        <th className="px-5 py-3 font-bold">Status</th>
+                        <th className="px-5 py-3 font-bold">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredAttendance.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/50 transition">
+                          <td className="px-5 py-3.5 text-slate-600 font-bold whitespace-nowrap">
+                            {formatDate(item.date)}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <span
+                              className={`inline-block rounded px-2.5 py-0.5 font-bold text-[10px] ${
+                                item.status === "PRESENT"
+                                  ? "bg-green-50 text-green-700 border border-green-100"
+                                  : item.status === "ABSENT"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-100"
+                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-500 font-medium max-w-xs truncate">
+                            {item.notes || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-100">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Attendance Verification Status</h3>
               <p className="text-xs text-slate-500">
                 Attendance rate is calculated relative to total recorded operations since hiring date ({formatDate(staffData.createdAt)}).

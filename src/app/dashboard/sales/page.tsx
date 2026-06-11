@@ -50,13 +50,14 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                 <th className="px-4 py-3 font-medium">Model</th>
                 <th className="px-4 py-3 font-medium">Total</th>
                 <th className="px-4 py-3 font-medium">Finance</th>
+                <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
               {sales.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                     No sale reports yet. Click &quot;+ New Sale&quot; to add one.
                   </td>
                 </tr>
@@ -75,6 +76,23 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                     </td>
                     <td className="px-4 py-3">{formatINR(sale.totalAmount)}</td>
                     <td className="px-4 py-3">{formatINR(sale.financeAmount)}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          sale.status === "APPROVED"
+                            ? "bg-green-50 text-green-700"
+                            : sale.status === "PENDING"
+                            ? "bg-amber-50 text-amber-700 animate-pulse"
+                            : "bg-rose-50 text-rose-700"
+                        }`}
+                      >
+                        {sale.status === "APPROVED"
+                          ? "Approved"
+                          : sale.status === "PENDING"
+                          ? "Pending"
+                          : "Rejected"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <Link
                         href={`/dashboard/sales/${sale.id}`}

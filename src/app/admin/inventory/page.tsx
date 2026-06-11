@@ -38,6 +38,8 @@ export default async function AdminInventoryPage() {
     color: s.color,
     status: s.status,
     receivedDate: s.receivedDate.toISOString().slice(0, 10),
+    invoiceBillAmount: s.invoiceBillAmount,
+    mrpAmount: s.mrpAmount,
     branchId: s.branchId,
     branchName: s.branch.name,
     saleReportId: s.saleReportId,
@@ -57,6 +59,17 @@ export default async function AdminInventoryPage() {
     tradedInFrom: s.saleReport.customerName,
   }));
 
+  // Fetch database pricing configs
+  const priceConfigs = await prisma.vehiclePriceConfig.findMany();
+
+  const formattedPriceConfigs = priceConfigs.map((pc) => ({
+    id: pc.id,
+    modelName: pc.modelName,
+    modelVariant: pc.modelVariant,
+    invoiceAmount: pc.invoiceAmount,
+    mrpAmount: pc.mrpAmount,
+  }));
+
   const formattedBranches = branches.map((b) => ({
     id: b.id,
     name: b.name
@@ -67,6 +80,7 @@ export default async function AdminInventoryPage() {
       initialStock={formattedStock}
       initialExchangeStock={formattedExchangeStock}
       branches={formattedBranches}
+      initialPriceConfigs={formattedPriceConfigs}
     />
   );
 }

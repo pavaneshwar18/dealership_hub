@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { VEHICLE_MODELS } from "@/lib/models";
+import { VEHICLE_MODELS, getAllStockRows } from "@/lib/models";
 
 type StockItem = {
   id: string;
@@ -12,6 +12,8 @@ type StockItem = {
   color: string | null;
   status: string;
   receivedDate: string; // YYYY-MM-DD
+  invoiceBillAmount: number;
+  mrpAmount: number;
   branchId: string;
   branchName: string;
   saleReportId: string | null;
@@ -36,13 +38,22 @@ type ExchangeItem = {
   tradedInFrom: string;
 };
 
+type PriceConfigItem = {
+  id: string;
+  modelName: string;
+  modelVariant: string;
+  invoiceAmount: number;
+  mrpAmount: number;
+};
+
 type AdminInventoryClientProps = {
   initialStock: StockItem[];
   initialExchangeStock: ExchangeItem[];
   branches: BranchItem[];
+  initialPriceConfigs: PriceConfigItem[];
 };
 
-export function AdminInventoryClient({ initialStock, initialExchangeStock, branches }: AdminInventoryClientProps) {
+export function AdminInventoryClient({ initialStock, initialExchangeStock, branches, initialPriceConfigs }: AdminInventoryClientProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -50,7 +61,8 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
 
   const [stock, setStock] = useState<StockItem[]>(initialStock);
   const [exchangeStock, setExchangeStock] = useState<ExchangeItem[]>(initialExchangeStock);
-  const [activeTab, setActiveTab] = useState<"new" | "exchange">("new");
+  const [priceConfigs, setPriceConfigs] = useState<PriceConfigItem[]>(initialPriceConfigs);
+  const [activeTab, setActiveTab] = useState<"new" | "exchange" | "pricing">("new");
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState<string | null>(null); // tracks id of item currently updating
 
@@ -93,6 +105,8 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
   const [chassisNumber, setChassisNumber] = useState("");
   const [engineNumber, setEngineNumber] = useState("");
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [invoiceBillAmount, setInvoiceBillAmount] = useState("0");
+  const [mrpAmount, setMrpAmount] = useState("0");
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [formLoading, setFormLoading] = useState(false);
@@ -154,8 +168,20 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
     setFormError("");
     setFormSuccess("");
 
-    if (!modelName || !chassisNumber || !engineNumber) {
+    if (!modelName || !chassisNumber || !engineNumber || !invoiceBillAmount || !mrpAmount) {
       setFormError("Please fill in all required fields");
+      setFormLoading(false);
+      return;
+    }
+
+    if (isNaN(Number(invoiceBillAmount)) || parseFloat(invoiceBillAmount) < 0) {
+      setFormError("Please enter a valid positive invoice bill amount");
+      setFormLoading(false);
+      return;
+    }
+
+    if (isNaN(Number(mrpAmount)) || parseFloat(mrpAmount) < 0) {
+      setFormError("Please enter a valid positive MRP amount");
       setFormLoading(false);
       return;
     }
@@ -171,6 +197,8 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
           engineNumber,
           color: null,
           receivedDate,
+          invoiceBillAmount: parseFloat(invoiceBillAmount),
+          mrpAmount: parseFloat(mrpAmount),
         }),
       });
 
@@ -193,6 +221,8 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
       // Clear fields
       setChassisNumber("");
       setEngineNumber("");
+      setInvoiceBillAmount("0");
+      setMrpAmount("0");
     } catch {
       setFormError("An unexpected connection error occurred.");
     } finally {
@@ -385,6 +415,18 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
         >
           Exchange Vehicles
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("pricing");
+          }}
+          className={`border-b-2 px-6 py-3 text-sm font-semibold transition ${
+            activeTab === "pricing"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
+        >
+          Price Settings
+        </button>
       </div>
 
       {/* Register Stock Form Panel */}
@@ -412,8 +454,19 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
               <select
                 value={modelName}
                 onChange={(e) => {
-                  setModelName(e.target.value);
+                  const selectedModel = e.target.value;
+                  setModelName(selectedModel);
                   setModelVariant("");
+                  const config = priceConfigs.find(
+                    (c) => c.modelName === selectedModel && c.modelVariant === ""
+                  );
+                  if (config) {
+                    setInvoiceBillAmount(String(config.invoiceAmount));
+                    setMrpAmount(String(config.mrpAmount));
+                  } else {
+                    setInvoiceBillAmount("0");
+                    setMrpAmount("0");
+                  }
                 }}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
                 required
@@ -430,7 +483,28 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
                 <span className="mb-1.5 block text-sm font-medium text-slate-700">{selectedModelInfo?.variantLabel} *</span>
                 <select
                   value={modelVariant}
-                  onChange={(e) => setModelVariant(e.target.value)}
+                  onChange={(e) => {
+                    const selectedVariant = e.target.value;
+                    setModelVariant(selectedVariant);
+                    const config = priceConfigs.find(
+                      (c) => c.modelName === modelName && c.modelVariant === selectedVariant
+                    );
+                    if (config) {
+                      setInvoiceBillAmount(String(config.invoiceAmount));
+                      setMrpAmount(String(config.mrpAmount));
+                    } else {
+                      const parentConfig = priceConfigs.find(
+                        (c) => c.modelName === modelName && c.modelVariant === ""
+                      );
+                      if (parentConfig) {
+                        setInvoiceBillAmount(String(parentConfig.invoiceAmount));
+                        setMrpAmount(String(parentConfig.mrpAmount));
+                      } else {
+                        setInvoiceBillAmount("0");
+                        setMrpAmount("0");
+                      }
+                    }
+                  }}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
                   required
                 >
@@ -473,6 +547,32 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
                 value={receivedDate}
                 onChange={(e) => setReceivedDate(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2 bg-white"
+                required
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">Invoice Bill Amount (₹) *</span>
+              <input
+                type="number"
+                step="any"
+                placeholder="0"
+                value={invoiceBillAmount}
+                onChange={(e) => setInvoiceBillAmount(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+                required
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">MRP Amount (₹) *</span>
+              <input
+                type="number"
+                step="any"
+                placeholder="0"
+                value={mrpAmount}
+                onChange={(e) => setMrpAmount(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
                 required
               />
             </label>
@@ -562,10 +662,11 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
         </div>
       )}
 
-      {activeTab === "new" ? (
+      {activeTab === "new" && (
         /* Inventory Table List */
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full text-left text-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3.5 font-semibold w-16">S.No.</th>
@@ -678,11 +779,15 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
               )}
             </tbody>
           </table>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === "exchange" && (
         /* Exchange Vehicles Table List */
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full text-left text-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3.5 font-semibold w-16">S.No.</th>
@@ -774,6 +879,49 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
               )}
             </tbody>
           </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "pricing" && (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-6 py-3.5 font-semibold">Model / Variant</th>
+                  <th className="px-6 py-3.5 font-semibold">Default Invoice Price (₹)</th>
+                  <th className="px-6 py-3.5 font-semibold">Default MRP Price (₹)</th>
+                  <th className="px-6 py-3.5 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {getAllStockRows().map((row) => {
+                  const config = priceConfigs.find(
+                    (c) => c.modelName === row.modelName && c.modelVariant === (row.modelVariant || "")
+                  );
+                  return (
+                    <PriceConfigRow
+                      key={`${row.modelName}-${row.modelVariant || "Standard"}`}
+                      modelName={row.modelName}
+                      modelVariant={row.modelVariant}
+                      initialConfig={config}
+                      onSaveSuccess={(updatedConfig) => {
+                        setPriceConfigs((prev) => {
+                          const existingIndex = prev.findIndex((c) => c.id === updatedConfig.id);
+                          if (existingIndex > -1) {
+                            return prev.map((c, i) => (i === existingIndex ? updatedConfig : c));
+                          } else {
+                            return [...prev, updatedConfig];
+                          }
+                        });
+                      }}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -843,5 +991,119 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
         </div>
       )}
     </div>
+  );
+}
+
+type PriceConfigRowProps = {
+  modelName: string;
+  modelVariant: string | null;
+  initialConfig?: PriceConfigItem;
+  onSaveSuccess: (updatedConfig: PriceConfigItem) => void;
+};
+
+function PriceConfigRow({ modelName, modelVariant, initialConfig, onSaveSuccess }: PriceConfigRowProps) {
+  const [invoice, setInvoice] = useState(initialConfig ? String(initialConfig.invoiceAmount) : "0");
+  const [mrp, setMrp] = useState(initialConfig ? String(initialConfig.mrpAmount) : "0");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  // Update values if config props update dynamically
+  useEffect(() => {
+    if (initialConfig) {
+      setInvoice(String(initialConfig.invoiceAmount));
+      setMrp(String(initialConfig.mrpAmount));
+    }
+  }, [initialConfig]);
+
+  async function handleSave() {
+    setLoading(true);
+    setSuccess(false);
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/model-prices", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modelName,
+          modelVariant: modelVariant || "",
+          invoiceAmount: parseFloat(invoice) || 0,
+          mrpAmount: parseFloat(mrp) || 0,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to save prices");
+        return;
+      }
+
+      setSuccess(true);
+      onSaveSuccess(data);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch {
+      setError("Connection error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <tr className="hover:bg-slate-50/50 transition">
+      <td className="px-6 py-4 font-semibold text-slate-900">
+        {modelName}
+        {modelVariant && (
+          <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+            {modelVariant}
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4">
+        <input
+          type="number"
+          step="any"
+          value={invoice}
+          onChange={(e) => setInvoice(e.target.value)}
+          className="w-full max-w-[180px] rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+        />
+      </td>
+      <td className="px-6 py-4">
+        <input
+          type="number"
+          step="any"
+          value={mrp}
+          onChange={(e) => setMrp(e.target.value)}
+          className="w-full max-w-[180px] rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none ring-blue-500 focus:ring-2"
+        />
+      </td>
+      <td className="px-6 py-4 text-right">
+        <div className="flex items-center justify-end gap-3">
+          {error && <span className="text-xs text-rose-600 font-medium">{error}</span>}
+          {success && (
+            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-semibold animate-bounce">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Saved!
+            </span>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="rounded-lg bg-blue-700 hover:bg-blue-800 px-3.5 py-2 text-xs font-semibold text-white transition disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Saving...
+              </>
+            ) : (
+              "Save"
+            )}
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
