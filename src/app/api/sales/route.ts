@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Resend } from "resend";
+import { getUploadsDir } from "@/lib/upload-utils";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
     const ext = aadhaarFile.type.split("/")[1] === "jpeg" ? "jpg" : aadhaarFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(process.cwd(), "uploads", "aadhaar");
+    const uploadDir = path.join(getUploadsDir(), "aadhaar");
     await mkdir(uploadDir, { recursive: true });
 
     const buffer = Buffer.from(await aadhaarFile.arrayBuffer());
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
   const additionalFiles = formData.getAll("additionalDocs") as File[];
   if (additionalFiles && additionalFiles.length > 0) {
     const allowedDocs = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    const docsUploadDir = path.join(process.cwd(), "uploads", "documents");
+    const docsUploadDir = path.join(getUploadsDir(), "documents");
     await mkdir(docsUploadDir, { recursive: true });
 
     for (const file of additionalFiles) {
@@ -199,7 +200,7 @@ export async function POST(request: Request) {
       const attachments: any[] = [];
       if (aadhaarImagePath) {
         try {
-          const fileBuffer = await readFile(path.join(process.cwd(), "uploads", aadhaarImagePath));
+          const fileBuffer = await readFile(path.join(getUploadsDir(), aadhaarImagePath));
           const filename = path.basename(aadhaarImagePath);
           attachments.push({ filename, content: fileBuffer });
         } catch (e) {
@@ -208,7 +209,7 @@ export async function POST(request: Request) {
       }
       for (const docPath of additionalDocs) {
         try {
-          const fileBuffer = await readFile(path.join(process.cwd(), "uploads", docPath));
+          const fileBuffer = await readFile(path.join(getUploadsDir(), docPath));
           const filename = path.basename(docPath);
           attachments.push({ filename, content: fileBuffer });
         } catch (e) {

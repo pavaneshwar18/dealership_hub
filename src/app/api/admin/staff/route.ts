@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import path from "node:path";
 import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { getUploadsDir } from "@/lib/upload-utils";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
 
     const ext = photoFile.type.split("/")[1] === "jpeg" ? "jpg" : photoFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(process.cwd(), "uploads", "staff");
+    const uploadDir = path.join(getUploadsDir(), "staff");
     await mkdir(uploadDir, { recursive: true });
 
     const buffer = Buffer.from(await photoFile.arrayBuffer());
@@ -163,7 +164,7 @@ export async function PUT(request: Request) {
     // Delete old file if exists
     if (existing.photoPath) {
       try {
-        await unlink(path.join(process.cwd(), "uploads", existing.photoPath));
+        await unlink(path.join(getUploadsDir(), existing.photoPath));
       } catch {
         // ignore
       }
@@ -171,7 +172,7 @@ export async function PUT(request: Request) {
 
     const ext = photoFile.type.split("/")[1] === "jpeg" ? "jpg" : photoFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(process.cwd(), "uploads", "staff");
+    const uploadDir = path.join(getUploadsDir(), "staff");
     await mkdir(uploadDir, { recursive: true });
 
     const buffer = Buffer.from(await photoFile.arrayBuffer());
@@ -181,7 +182,7 @@ export async function PUT(request: Request) {
     // If we're not keeping the old photo, delete it
     if (existing.photoPath) {
       try {
-        await unlink(path.join(process.cwd(), "uploads", existing.photoPath));
+        await unlink(path.join(getUploadsDir(), existing.photoPath));
       } catch {
         // ignore
       }
@@ -231,7 +232,7 @@ export async function DELETE(request: Request) {
     const existing = await prisma.staff.findUnique({ where: { id } });
     if (existing && existing.photoPath) {
       try {
-        await unlink(path.join(process.cwd(), "uploads", existing.photoPath));
+        await unlink(path.join(getUploadsDir(), existing.photoPath));
       } catch {
         // ignore
       }

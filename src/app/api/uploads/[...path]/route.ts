@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { getSession } from "@/lib/auth";
+import { getUploadsDir } from "@/lib/upload-utils";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -28,7 +29,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }
 
-  const absolutePath = path.join(process.cwd(), "uploads", filePath);
+  const absolutePath = path.join(getUploadsDir(), filePath);
   const ext = path.extname(absolutePath).slice(1).toLowerCase();
   const mimeType = MIME_TYPES[ext];
 

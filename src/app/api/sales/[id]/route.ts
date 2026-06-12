@@ -4,6 +4,7 @@ import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getUploadsDir } from "@/lib/upload-utils";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -132,7 +133,7 @@ export async function PUT(request: Request, context: RouteContext) {
     // Delete old file if exists
     if (existing.aadhaarImagePath) {
       try {
-        await unlink(path.join(process.cwd(), "uploads", existing.aadhaarImagePath));
+        await unlink(path.join(getUploadsDir(), existing.aadhaarImagePath));
       } catch {
         // ignore if old file doesn't exist
       }
@@ -140,7 +141,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const ext = aadhaarFile.type.split("/")[1] === "jpeg" ? "jpg" : aadhaarFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(process.cwd(), "uploads", "aadhaar");
+    const uploadDir = path.join(getUploadsDir(), "aadhaar");
     await mkdir(uploadDir, { recursive: true });
 
     const buffer = Buffer.from(await aadhaarFile.arrayBuffer());
@@ -157,7 +158,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const removedDocs = existing.additionalDocs.filter((d) => !keptDocs.includes(d));
     for (const docPath of removedDocs) {
       try {
-        await unlink(path.join(process.cwd(), "uploads", docPath));
+        await unlink(path.join(getUploadsDir(), docPath));
       } catch (err) {
         // ignore
       }
@@ -169,7 +170,7 @@ export async function PUT(request: Request, context: RouteContext) {
   const additionalFiles = formData.getAll("additionalDocs") as File[];
   if (additionalFiles && additionalFiles.length > 0) {
     const allowedDocs = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    const docsUploadDir = path.join(process.cwd(), "uploads", "documents");
+    const docsUploadDir = path.join(getUploadsDir(), "documents");
     await mkdir(docsUploadDir, { recursive: true });
 
     for (const file of additionalFiles) {
@@ -345,7 +346,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   // Delete Aadhaar image file if exists
   if (existing.aadhaarImagePath) {
     try {
-      await unlink(path.join(process.cwd(), "uploads", existing.aadhaarImagePath));
+      await unlink(path.join(getUploadsDir(), existing.aadhaarImagePath));
     } catch {
       // ignore
     }
@@ -355,7 +356,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   if (existing.additionalDocs && existing.additionalDocs.length > 0) {
     for (const docPath of existing.additionalDocs) {
       try {
-        await unlink(path.join(process.cwd(), "uploads", docPath));
+        await unlink(path.join(getUploadsDir(), docPath));
       } catch {
         // ignore
       }
