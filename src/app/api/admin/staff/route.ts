@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import path from "node:path";
-import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { getUploadsDir } from "@/lib/upload-utils";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -78,12 +77,22 @@ export async function POST(request: Request) {
 
     const ext = photoFile.type.split("/")[1] === "jpeg" ? "jpg" : photoFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(getUploadsDir(), "staff");
-    await mkdir(uploadDir, { recursive: true });
-
     const buffer = Buffer.from(await photoFile.arrayBuffer());
-    await writeFile(path.join(uploadDir, filename), buffer);
-    photoPath = `staff/${filename}`;
+    const filePath = `staff/${filename}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("dealership-uploads")
+      .upload(filePath, buffer, {
+        contentType: photoFile.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Failed to upload staff photo to Supabase Storage:", uploadError);
+      return NextResponse.json({ error: "Failed to upload staff photo" }, { status: 500 });
+    }
+
+    photoPath = filePath;
   }
 
   try {
@@ -164,27 +173,37 @@ export async function PUT(request: Request) {
     // Delete old file if exists
     if (existing.photoPath) {
       try {
-        await unlink(path.join(getUploadsDir(), existing.photoPath));
-      } catch {
-        // ignore
+        await supabase.storage.from("dealership-uploads").remove([existing.photoPath]);
+      } catch (err) {
+        console.error("Failed to delete old staff photo:", err);
       }
     }
 
     const ext = photoFile.type.split("/")[1] === "jpeg" ? "jpg" : photoFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(getUploadsDir(), "staff");
-    await mkdir(uploadDir, { recursive: true });
-
     const buffer = Buffer.from(await photoFile.arrayBuffer());
-    await writeFile(path.join(uploadDir, filename), buffer);
-    photoPath = `staff/${filename}`;
+    const filePath = `staff/${filename}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("dealership-uploads")
+      .upload(filePath, buffer, {
+        contentType: photoFile.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Failed to upload new staff photo:", uploadError);
+      return NextResponse.json({ error: "Failed to upload staff photo" }, { status: 500 });
+    }
+
+    photoPath = filePath;
   } else if (!keepOldPhoto) {
     // If we're not keeping the old photo, delete it
     if (existing.photoPath) {
       try {
-        await unlink(path.join(getUploadsDir(), existing.photoPath));
-      } catch {
-        // ignore
+        await supabase.storage.from("dealership-uploads").remove([existing.photoPath]);
+      } catch (err) {
+        console.error("Failed to delete staff photo:", err);
       }
     }
     photoPath = null;
@@ -232,9 +251,9 @@ export async function DELETE(request: Request) {
     const existing = await prisma.staff.findUnique({ where: { id } });
     if (existing && existing.photoPath) {
       try {
-        await unlink(path.join(getUploadsDir(), existing.photoPath));
-      } catch {
-        // ignore
+        await supabase.storage.from("dealership-uploads").remove([existing.photoPath]);
+      } catch (err) {
+        console.error("Failed to delete staff photo from Supabase Storage:", err);
       }
     }
 

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
-import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Resend } from "resend";
-import { getUploadsDir } from "@/lib/upload-utils";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -65,13 +64,22 @@ export async function POST(request: Request) {
 
     const ext = aadhaarFile.type.split("/")[1] === "jpeg" ? "jpg" : aadhaarFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(getUploadsDir(), "aadhaar");
-    await mkdir(uploadDir, { recursive: true });
-
     const buffer = Buffer.from(await aadhaarFile.arrayBuffer());
-    const filePath = path.join(uploadDir, filename);
-    await writeFile(filePath, buffer);
-    aadhaarImagePath = `aadhaar/${filename}`;
+    const filePath = `aadhaar/${filename}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("dealership-uploads")
+      .upload(filePath, buffer, {
+        contentType: aadhaarFile.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Failed to upload Aadhaar image to Supabase Storage:", uploadError);
+      return NextResponse.json({ error: "Failed to upload Aadhaar image" }, { status: 500 });
+    }
+
+    aadhaarImagePath = filePath;
   }
 
   // Handle Additional documents upload
@@ -79,8 +87,6 @@ export async function POST(request: Request) {
   const additionalFiles = formData.getAll("additionalDocs") as File[];
   if (additionalFiles && additionalFiles.length > 0) {
     const allowedDocs = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    const docsUploadDir = path.join(getUploadsDir(), "documents");
-    await mkdir(docsUploadDir, { recursive: true });
 
     for (const file of additionalFiles) {
       if (file.size === 0) continue;
@@ -93,9 +99,21 @@ export async function POST(request: Request) {
       const ext = file.type === "application/pdf" ? "pdf" : file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
       const filename = `${randomUUID()}.${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = path.join(docsUploadDir, filename);
-      await writeFile(filePath, buffer);
-      additionalDocs.push(`documents/${filename}`);
+      const filePath = `documents/${filename}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("dealership-uploads")
+        .upload(filePath, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Failed to upload document to Supabase Storage:", uploadError);
+        return NextResponse.json({ error: "Failed to upload additional documents" }, { status: 500 });
+      }
+
+      additionalDocs.push(filePath);
     }
   }
 
@@ -196,22 +214,36 @@ export async function POST(request: Request) {
         }
       }
 
-      // 2. Read attachments from disk
+      // 2. Read attachments from Supabase Storage
       const attachments: any[] = [];
       if (aadhaarImagePath) {
         try {
-          const fileBuffer = await readFile(path.join(getUploadsDir(), aadhaarImagePath));
-          const filename = path.basename(aadhaarImagePath);
-          attachments.push({ filename, content: fileBuffer });
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from("dealership-uploads")
+            .download(aadhaarImagePath);
+          if (!downloadError && fileData) {
+            const fileBuffer = Buffer.from(await fileData.arrayBuffer());
+            const filename = path.basename(aadhaarImagePath);
+            attachments.push({ filename, content: fileBuffer });
+          } else {
+            console.error("Failed to download Aadhaar image from Supabase for attachment:", downloadError);
+          }
         } catch (e) {
           console.error("Failed to read Aadhaar image for attachment:", e);
         }
       }
       for (const docPath of additionalDocs) {
         try {
-          const fileBuffer = await readFile(path.join(getUploadsDir(), docPath));
-          const filename = path.basename(docPath);
-          attachments.push({ filename, content: fileBuffer });
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from("dealership-uploads")
+            .download(docPath);
+          if (!downloadError && fileData) {
+            const fileBuffer = Buffer.from(await fileData.arrayBuffer());
+            const filename = path.basename(docPath);
+            attachments.push({ filename, content: fileBuffer });
+          } else {
+            console.error(`Failed to download document ${docPath} from Supabase for attachment:`, downloadError);
+          }
         } catch (e) {
           console.error(`Failed to read document ${docPath} for attachment:`, e);
         }

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
-import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getUploadsDir } from "@/lib/upload-utils";
+import { supabase } from "@/lib/supabase";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -133,20 +132,30 @@ export async function PUT(request: Request, context: RouteContext) {
     // Delete old file if exists
     if (existing.aadhaarImagePath) {
       try {
-        await unlink(path.join(getUploadsDir(), existing.aadhaarImagePath));
-      } catch {
-        // ignore if old file doesn't exist
+        await supabase.storage.from("dealership-uploads").remove([existing.aadhaarImagePath]);
+      } catch (err) {
+        console.error("Failed to delete old Aadhaar image:", err);
       }
     }
 
     const ext = aadhaarFile.type.split("/")[1] === "jpeg" ? "jpg" : aadhaarFile.type.split("/")[1];
     const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = path.join(getUploadsDir(), "aadhaar");
-    await mkdir(uploadDir, { recursive: true });
-
     const buffer = Buffer.from(await aadhaarFile.arrayBuffer());
-    await writeFile(path.join(uploadDir, filename), buffer);
-    aadhaarImagePath = `aadhaar/${filename}`;
+    const filePath = `aadhaar/${filename}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("dealership-uploads")
+      .upload(filePath, buffer, {
+        contentType: aadhaarFile.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Failed to upload new Aadhaar image:", uploadError);
+      return NextResponse.json({ error: "Failed to upload Aadhaar image" }, { status: 500 });
+    }
+
+    aadhaarImagePath = filePath;
   }
 
   // Handle Additional documents sync/replacement
@@ -154,13 +163,13 @@ export async function PUT(request: Request, context: RouteContext) {
   const existingDocsStr = formData.get("existingDocs") as string | null;
   if (existingDocsStr) {
     const keptDocs = JSON.parse(existingDocsStr) as string[];
-    // Find removed docs and delete them from disk
+    // Find removed docs and delete them from Supabase Storage
     const removedDocs = existing.additionalDocs.filter((d) => !keptDocs.includes(d));
-    for (const docPath of removedDocs) {
+    if (removedDocs.length > 0) {
       try {
-        await unlink(path.join(getUploadsDir(), docPath));
+        await supabase.storage.from("dealership-uploads").remove(removedDocs);
       } catch (err) {
-        // ignore
+        console.error("Failed to delete removed documents:", err);
       }
     }
     additionalDocs = keptDocs;
@@ -170,8 +179,6 @@ export async function PUT(request: Request, context: RouteContext) {
   const additionalFiles = formData.getAll("additionalDocs") as File[];
   if (additionalFiles && additionalFiles.length > 0) {
     const allowedDocs = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    const docsUploadDir = path.join(getUploadsDir(), "documents");
-    await mkdir(docsUploadDir, { recursive: true });
 
     for (const file of additionalFiles) {
       if (file.size === 0) continue;
@@ -184,9 +191,21 @@ export async function PUT(request: Request, context: RouteContext) {
       const ext = file.type === "application/pdf" ? "pdf" : file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
       const filename = `${randomUUID()}.${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = path.join(docsUploadDir, filename);
-      await writeFile(filePath, buffer);
-      additionalDocs.push(`documents/${filename}`);
+      const filePath = `documents/${filename}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("dealership-uploads")
+        .upload(filePath, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Failed to upload document to Supabase Storage:", uploadError);
+        return NextResponse.json({ error: "Failed to upload additional documents" }, { status: 500 });
+      }
+
+      additionalDocs.push(filePath);
     }
   }
 
@@ -346,20 +365,18 @@ export async function DELETE(_request: Request, context: RouteContext) {
   // Delete Aadhaar image file if exists
   if (existing.aadhaarImagePath) {
     try {
-      await unlink(path.join(getUploadsDir(), existing.aadhaarImagePath));
-    } catch {
-      // ignore
+      await supabase.storage.from("dealership-uploads").remove([existing.aadhaarImagePath]);
+    } catch (err) {
+      console.error("Failed to delete Aadhaar image from Supabase Storage:", err);
     }
   }
 
   // Delete all additional documents if they exist
   if (existing.additionalDocs && existing.additionalDocs.length > 0) {
-    for (const docPath of existing.additionalDocs) {
-      try {
-        await unlink(path.join(getUploadsDir(), docPath));
-      } catch {
-        // ignore
-      }
+    try {
+      await supabase.storage.from("dealership-uploads").remove(existing.additionalDocs);
+    } catch (err) {
+      console.error("Failed to delete documents from Supabase Storage:", err);
     }
   }
 
