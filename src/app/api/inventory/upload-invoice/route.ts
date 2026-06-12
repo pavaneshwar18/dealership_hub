@@ -69,11 +69,11 @@ export async function POST(request: Request) {
 
       Follow these guidelines to map the modelName and modelVariant:
       - Map the modelName to the closest matching dealership model from this list:
-        * Compact
-        * Maxima Z
-        * Maxima WB
+        * Compact Diesel
+        * Maxima Z Diesel
+        * Maxima WB Diesel
         * 4S LPG
-        * Cargo
+        * Cargo Diesel
         * RE CNG
         * Maxima Z (CNG)
         * Maxima WB (CNG)

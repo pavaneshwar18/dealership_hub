@@ -5,11 +5,11 @@ export type VehicleModel = {
 };
 
 export const VEHICLE_MODELS: VehicleModel[] = [
-  { name: "Compact" },
-  { name: "Maxima Z" },
-  { name: "Maxima WB" },
+  { name: "Compact Diesel" },
+  { name: "Maxima Z Diesel" },
+  { name: "Maxima WB Diesel" },
   { name: "4S LPG" },
-  { name: "Cargo" },
+  { name: "Cargo Diesel" },
   { name: "RE CNG" },
   { name: "Maxima Z (CNG)", variants: ["G.Yellow", "E.Green"], variantLabel: "Colour" },
   { name: "Maxima WB (CNG)", variants: ["G.Yellow", "E.Green"], variantLabel: "Colour" },
@@ -25,6 +25,25 @@ export function getAllStockRows(): { modelName: string; modelVariant: string | n
   const rows: { modelName: string; modelVariant: string | null }[] = [];
   for (const model of VEHICLE_MODELS) {
     if (model.variants && model.variants.length > 0) {
+      for (const variant of model.variants) {
+        rows.push({ modelName: model.name, modelVariant: variant });
+      }
+    } else {
+      rows.push({ modelName: model.name, modelVariant: null });
+    }
+  }
+  return rows;
+}
+
+/**
+ * Build a consolidated list of rows for the pricing configurations.
+ * Models with color-based variants (variantLabel === "Colour") are clubbed into a single row,
+ * since their colors share the same price. Other variants (like Wego model codes) remain separate.
+ */
+export function getPricingConfigRows(): { modelName: string; modelVariant: string | null }[] {
+  const rows: { modelName: string; modelVariant: string | null }[] = [];
+  for (const model of VEHICLE_MODELS) {
+    if (model.variants && model.variants.length > 0 && model.variantLabel !== "Colour") {
       for (const variant of model.variants) {
         rows.push({ modelName: model.name, modelVariant: variant });
       }

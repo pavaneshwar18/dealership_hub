@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { VEHICLE_MODELS, getAllStockRows } from "@/lib/models";
+import { VEHICLE_MODELS, getAllStockRows, getPricingConfigRows } from "@/lib/models";
 
 type StockItem = {
   id: string;
@@ -1216,7 +1216,7 @@ export function AdminInventoryClient({ initialStock, initialExchangeStock, branc
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {getAllStockRows().map((row) => {
+                {getPricingConfigRows().map((row) => {
                   const config = priceConfigs.find(
                     (c) => c.modelName === row.modelName && c.modelVariant === (row.modelVariant || "")
                   );
