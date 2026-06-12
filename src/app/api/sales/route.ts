@@ -253,7 +253,7 @@ export async function POST(request: Request) {
       const resend = new Resend(resendApiKey);
       await resend.emails.send({
         from: "Dealership Hub <onboarding@resend.dev>",
-        to: "pavaneshwar04@gmail.com",
+        to: "mlgbajaj@gmail.com",
         subject: `New Sale Report Submitted - ${branch?.name || "Unknown Branch"} - ${customerName}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
