@@ -1,25 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireBackOffice } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDate, formatINR } from "@/lib/format";
 import { formatModelDisplay } from "@/lib/models";
-import { SaleReportForm } from "@/components/SaleReportForm";
-import { AdminSaleDeleteButton } from "@/components/AdminSaleDeleteButton";
-import { AdminSaleApprovalControls } from "@/components/AdminSaleApprovalControls";
 
-type AdminSaleDetailPageProps = {
+type BackOfficeSaleDetailPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string }>;
 };
 
-export default async function AdminSaleDetailPage({
+export default async function BackOfficeSaleDetailPage({
   params,
-  searchParams,
-}: AdminSaleDetailPageProps) {
-  const session = await requireAdmin();
+}: BackOfficeSaleDetailPageProps) {
+  await requireBackOffice();
   const { id } = await params;
-  const { edit } = await searchParams;
 
   const sale = await prisma.saleReport.findUnique({
     where: { id },
@@ -30,116 +24,24 @@ export default async function AdminSaleDetailPage({
     notFound();
   }
 
-  // Fetch active staff for this branch (and the currently assigned executive, if any, even if inactive)
-  const staff = await prisma.staff.findMany({
-    where: {
-      branchId: sale.branchId,
-      OR: [
-        { active: true },
-        { id: sale.salesExecutiveId || undefined }
-      ]
-    },
-    orderBy: { name: "asc" },
-  });
-
-  const formattedStaff = staff.map((s) => ({
-    id: s.id,
-    name: s.name,
-  }));
-
-  const isEditing = edit === "1";
-
-  if (isEditing) {
-    return (
-      <div className="mb-8">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Edit Sale Report</h1>
-            <p className="mt-2 text-slate-500">Update this sale record as Admin.</p>
-          </div>
-          <Link
-            href={`/admin/sales/${sale.id}`}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Cancel
-          </Link>
-        </div>
-        <SaleReportForm
-          reportId={sale.id}
-          branchId={sale.branchId}
-          staff={formattedStaff}
-          redirectUrl={`/admin/sales/${sale.id}`}
-          initialValues={{
-            customerName: sale.customerName,
-            customerFatherName: sale.customerFatherName,
-            customerAddress: sale.customerAddress,
-            modelName: sale.modelName,
-            modelVariant: sale.modelVariant,
-            totalAmount: sale.totalAmount,
-            downPayment: sale.downPayment,
-            financeAmount: sale.financeAmount,
-            financer: sale.financer,
-            aadhaarImagePath: sale.aadhaarImagePath,
-            createdAt: sale.createdAt,
-            paymentType: sale.paymentType,
-            paymentMode: sale.paymentMode,
-            cashAmount: sale.cashAmount,
-            bankAmount: sale.bankAmount,
-            vehicleStockId: sale.vehicleStock?.id || "",
-            vehicleStock: sale.vehicleStock ? {
-              id: sale.vehicleStock.id,
-              chassisNumber: sale.vehicleStock.chassisNumber,
-              engineNumber: sale.vehicleStock.engineNumber,
-              modelName: sale.vehicleStock.modelName,
-              modelVariant: sale.vehicleStock.modelVariant,
-            } : undefined,
-            hasExchange: sale.hasExchange,
-            exchangeAmount: sale.exchangeAmount,
-            exchangeModel: sale.exchangeModel,
-            exchangeYear: sale.exchangeYear,
-            hasHandLoan: sale.hasHandLoan,
-            handLoanAmount: sale.handLoanAmount,
-            salesExecutiveId: sale.salesExecutiveId,
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="mb-8 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Sale Report</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Sale Report Details</h1>
           <p className="mt-2 text-slate-500">
             {sale.branch.name} · {formatDate(sale.createdAt)} · by {sale.submittedBy.name}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/admin/sales/${sale.id}?edit=1`}
-            className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+            href="/backoffice/sales"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm"
           >
-            Edit
-          </Link>
-          <AdminSaleDeleteButton saleId={sale.id} />
-          <Link
-            href="/admin/sales"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Back to all sales
+            Back to overview
           </Link>
         </div>
       </div>
-
-      {sale.status === "PENDING" && sale.vehicleStock && (
-        <AdminSaleApprovalControls
-          saleId={sale.id}
-          customerName={sale.customerName}
-          totalAmount={sale.totalAmount}
-          mrpAmount={sale.vehicleStock.mrpAmount}
-        />
-      )}
 
       {sale.status === "REJECTED" && (
         <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
@@ -260,7 +162,7 @@ export default async function AdminSaleDetailPage({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Payment Mode</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">
               {sale.paymentMode === "Both"
-                ? `Both (Cash: ${formatINR(sale.cashAmount)} + Bank: ${formatINR(sale.bankAmount)})`
+                ? `Both (Cash: ${formatINR(sale.cashAmount || 0)} + Bank: ${formatINR(sale.bankAmount || 0)})`
                 : sale.paymentMode}
             </p>
           </div>

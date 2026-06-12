@@ -5,7 +5,7 @@ import { startOfDayIST, formatDateToISTString } from "@/lib/format";
 
 export async function GET(request: Request) {
   const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
+  if (!session || (session.role !== "ADMIN" && session.role !== "BACK_OFFICE")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -32,9 +32,10 @@ type BranchItem = {
 type AdminSalesClientProps = {
   initialSales: SaleItem[];
   branches: BranchItem[];
+  basePath?: string;
 };
 
-export function AdminSalesClient({ initialSales, branches }: AdminSalesClientProps) {
+export function AdminSalesClient({ initialSales, branches, basePath = "/admin/sales" }: AdminSalesClientProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -517,7 +518,7 @@ export function AdminSalesClient({ initialSales, branches }: AdminSalesClientPro
               filteredSales.map((sale) => (
                 <tr
                   key={sale.id}
-                  onClick={() => router.push(`/admin/sales/${sale.id}`)}
+                  onClick={() => router.push(`${basePath}/${sale.id}`)}
                   className="hover:bg-slate-50/50 transition cursor-pointer"
                 >
                   <td className="px-4 py-4 text-slate-600">

@@ -1,0 +1,86 @@
+import { requireBackOffice } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { AdminInventoryClient } from "@/components/AdminInventoryClient";
+
+export default async function BackOfficeInventoryPage() {
+  await requireBackOffice();
+
+  // Fetch all stock items
+  const stock = await prisma.vehicleStock.findMany({
+    orderBy: { receivedDate: "desc" },
+    include: {
+      branch: true,
+      saleReport: true
+    }
+  });
+
+  // Fetch all exchange stock items
+  const exchangeStock = await prisma.exchangeVehicle.findMany({
+    orderBy: { receivedDate: "desc" },
+    include: {
+      branch: true,
+      saleReport: true
+    }
+  });
+
+  // Fetch branches for selection filtering and transfers
+  const branches = await prisma.branch.findMany({
+    orderBy: { name: "asc" }
+  });
+
+  // Format into safe serializable objects for the client component
+  const formattedStock = stock.map((s) => ({
+    id: s.id,
+    chassisNumber: s.chassisNumber,
+    engineNumber: s.engineNumber,
+    modelName: s.modelName,
+    modelVariant: s.modelVariant,
+    color: s.color,
+    status: s.status,
+    receivedDate: s.receivedDate.toISOString().slice(0, 10),
+    invoiceBillAmount: s.invoiceBillAmount,
+    mrpAmount: s.mrpAmount,
+    branchId: s.branchId,
+    branchName: s.branch.name,
+    saleReportId: s.saleReportId,
+    soldTo: s.saleReport ? s.saleReport.customerName : null,
+  }));
+
+  const formattedExchangeStock = exchangeStock.map((s) => ({
+    id: s.id,
+    modelName: s.modelName,
+    yearModel: s.yearModel,
+    valuation: s.valuation,
+    status: s.status,
+    receivedDate: s.receivedDate.toISOString().slice(0, 10),
+    branchId: s.branchId,
+    branchName: s.branch.name,
+    saleReportId: s.saleReportId,
+    tradedInFrom: s.saleReport.customerName,
+  }));
+
+  // Fetch database pricing configs
+  const priceConfigs = await prisma.vehiclePriceConfig.findMany();
+
+  const formattedPriceConfigs = priceConfigs.map((pc) => ({
+    id: pc.id,
+    modelName: pc.modelName,
+    modelVariant: pc.modelVariant,
+    invoiceAmount: pc.invoiceAmount,
+    mrpAmount: pc.mrpAmount,
+  }));
+
+  const formattedBranches = branches.map((b) => ({
+    id: b.id,
+    name: b.name
+  }));
+
+  return (
+    <AdminInventoryClient
+      initialStock={formattedStock}
+      initialExchangeStock={formattedExchangeStock}
+      branches={formattedBranches}
+      initialPriceConfigs={formattedPriceConfigs}
+    />
+  );
+}

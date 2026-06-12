@@ -5,7 +5,9 @@ import { LoginForm } from "@/components/LoginForm";
 export default async function LoginPage() {
   const session = await getSession();
   if (session) {
-    redirect(session.role === "ADMIN" ? "/admin" : "/dashboard");
+    if (session.role === "ADMIN") redirect("/admin");
+    if (session.role === "BACK_OFFICE") redirect("/backoffice");
+    redirect("/dashboard");
   }
 
   return (

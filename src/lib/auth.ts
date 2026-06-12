@@ -85,7 +85,27 @@ export async function requireSession(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") redirect("/dashboard");
+  if (session.role !== "ADMIN") {
+    if (session.role === "BACK_OFFICE") redirect("/backoffice");
+    redirect("/dashboard");
+  }
+  return session;
+}
+
+export async function requireBackOffice(): Promise<SessionUser> {
+  const session = await requireSession();
+  if (session.role !== "BACK_OFFICE") {
+    if (session.role === "ADMIN") redirect("/admin");
+    redirect("/dashboard");
+  }
+  return session;
+}
+
+export async function requireAdminOrBackOffice(): Promise<SessionUser> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "BACK_OFFICE") {
+    redirect("/dashboard");
+  }
   return session;
 }
 

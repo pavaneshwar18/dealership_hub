@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   ADMIN
   BRANCH_MANAGER
+  BACK_OFFICE
 }
 
 enum ReportStatus {
@@ -123,6 +124,18 @@ model SaleReport {
 
   salesExecutiveId   String?
   salesExecutive     Staff?   @relation(fields: [salesExecutiveId], references: [id], onDelete: SetNull)
+
+  trCompleted          Boolean @default(false)
+  invoiceCompleted     Boolean @default(false)
+  insuranceCompleted   Boolean @default(false)
+  numberPlateCompleted Boolean @default(false)
+
+  trDate               DateTime?
+  trNumber             String?
+  invoiceId            String?
+  insuranceProvider    String?
+  insurancePolicyNumber String?
+  permanentNumberPlate String?
 
   status             SaleStatus @default(APPROVED)
   adminComment       String?

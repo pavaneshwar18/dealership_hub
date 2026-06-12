@@ -12,8 +12,8 @@ export function Navbar({ user }: NavbarProps) {
   const pathname = usePathname();
 
   const links =
-    user.role === "ADMIN"
-      ? [] // Navigation links moved to the left sidebar for admin layout
+    user.role === "ADMIN" || user.role === "BACK_OFFICE"
+      ? [] // Navigation links moved to the left sidebar for admin and backoffice layouts
       : [
           { href: "/dashboard", label: "Today" },
           { href: "/dashboard/attendance", label: "Attendance" },
@@ -27,7 +27,7 @@ export function Navbar({ user }: NavbarProps) {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div>
-          <Link href={user.role === "ADMIN" ? "/admin" : "/dashboard"} className="block">
+          <Link href={user.role === "ADMIN" ? "/admin" : user.role === "BACK_OFFICE" ? "/backoffice" : "/dashboard"} className="block">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
               Vishnu Priya
             </p>
@@ -36,6 +36,8 @@ export function Navbar({ user }: NavbarProps) {
           <p className="text-sm text-slate-500">
             {user.role === "ADMIN"
               ? "Central admin dashboard"
+              : user.role === "BACK_OFFICE"
+              ? "Back office dashboard"
               : `${user.branchName} branch`}
           </p>
         </div>
