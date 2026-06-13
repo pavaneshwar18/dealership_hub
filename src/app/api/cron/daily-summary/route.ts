@@ -40,11 +40,26 @@ export async function GET(request: Request) {
       },
     });
 
-    // 5. Aggregate branch-wise breakdown
+    // 5. Aggregate branch-wise and model-wise breakdown
     const branchBreakdown: { [branchName: string]: number } = {};
+    
+    // Fetch all models to initialize them with zero
+    const vehicleConfigs = await prisma.vehiclePriceConfig.findMany({
+      select: { modelName: true },
+      distinct: ["modelName"],
+    });
+
+    const modelBreakdown: { [modelName: string]: number } = {};
+    vehicleConfigs.forEach((config) => {
+      modelBreakdown[config.modelName] = 0;
+    });
+
     sales.forEach((sale) => {
       const bName = sale.branch.name;
       branchBreakdown[bName] = (branchBreakdown[bName] || 0) + 1;
+
+      const mName = sale.modelName;
+      modelBreakdown[mName] = (modelBreakdown[mName] || 0) + 1;
     });
 
     // 6. Send summary report email via Resend
@@ -78,7 +93,7 @@ export async function GET(request: Request) {
             </div>
 
             <h3 style="color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 0; margin-bottom: 12px;">Branch-wise Performance Breakdown</h3>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 24px;">
               <thead>
                 <tr style="border-bottom: 2px solid #e2e8f0;">
                   <th style="padding: 8px 12px; font-weight: 600; color: #475569;">Branch Location</th>
@@ -101,6 +116,37 @@ export async function GET(request: Request) {
                     ? `
                   <tr>
                     <td colspan="2" style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic;">No sales recorded this month yet.</td>
+                  </tr>
+                `
+                    : ""
+                }
+              </tbody>
+            </table>
+
+            <h3 style="color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 0; margin-bottom: 12px;">Model-wise Performance Breakdown</h3>
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0;">
+                  <th style="padding: 8px 12px; font-weight: 600; color: #475569;">Vehicle Model</th>
+                  <th style="padding: 8px 12px; font-weight: 600; color: #475569; text-align: right;">Vehicles Sold (MTD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.entries(modelBreakdown)
+                  .map(
+                    ([mName, count]) => `
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px 12px; color: #334155; font-weight: 500;">${mName}</td>
+                    <td style="padding: 10px 12px; color: #1e3a8a; font-weight: bold; text-align: right;">${count}</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+                ${
+                  Object.keys(modelBreakdown).length === 0
+                    ? `
+                  <tr>
+                    <td colspan="2" style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic;">No models configured or sold.</td>
                   </tr>
                 `
                     : ""
