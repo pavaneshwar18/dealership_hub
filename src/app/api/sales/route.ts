@@ -251,15 +251,23 @@ export async function POST(request: Request) {
 
       // 3. Send email using Resend
       const resend = new Resend(resendApiKey);
+      const emailSubject = isPending 
+        ? `🚨 ACTION REQUIRED: Pending Sale Approval - ${branch?.name || "Unknown Branch"} - ${customerName}`
+        : `New Sale Report Submitted - ${branch?.name || "Unknown Branch"} - ${customerName}`;
+
+      const bannerColor = isPending ? "linear-gradient(135deg, #b91c1c, #991b1b)" : "linear-gradient(135deg, #1e40af, #1e3a8a)";
+      const bannerTitle = isPending ? "Action Required: Pending Sale Approval" : "New Sale Report Submitted";
+      const bannerSubText = isPending ? "This sale was flagged because the price is below MRP and requires Admin approval." : "Vishnu Priya Automotives";
+
       await resend.emails.send({
         from: "Dealership Hub <onboarding@resend.dev>",
         to: "mlgbajaj@gmail.com",
-        subject: `New Sale Report Submitted - ${branch?.name || "Unknown Branch"} - ${customerName}`,
+        subject: emailSubject,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <div style="background: linear-gradient(135deg, #1e40af, #1e3a8a); color: white; padding: 24px; text-align: center;">
-              <p style="text-transform: uppercase; font-size: 11px; letter-spacing: 0.15em; font-weight: 600; color: #93c5fd; margin: 0;">Vishnu Priya Automotives</p>
-              <h2 style="margin: 8px 0 0 0; font-size: 20px;">New Sale Report Submitted</h2>
+            <div style="background: ${bannerColor}; color: white; padding: 24px; text-align: center;">
+              <p style="text-transform: uppercase; font-size: 11px; letter-spacing: 0.15em; font-weight: 600; color: #f8fafc; margin: 0;">${bannerSubText}</p>
+              <h2 style="margin: 8px 0 0 0; font-size: 20px;">${bannerTitle}</h2>
             </div>
             <div style="padding: 24px; color: #334155; font-size: 14px; line-height: 1.6;">
               <h3 style="color: #1e3a8a; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-top: 0;">Customer Information</h3>
