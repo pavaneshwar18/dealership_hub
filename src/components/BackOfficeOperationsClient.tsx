@@ -199,6 +199,7 @@ export function BackOfficeOperationsClient() {
               <tr>
                 <th className="px-5 py-4 font-semibold">Date & Branch</th>
                 <th className="px-5 py-4 font-semibold">Customer & Model</th>
+                <th className="px-5 py-4 font-semibold">Chassis No.</th>
                 <th className="px-5 py-4 font-semibold text-center">TR</th>
                 <th className="px-5 py-4 font-semibold text-center">Invoice</th>
                 <th className="px-5 py-4 font-semibold text-center">Insurance</th>
@@ -208,7 +209,7 @@ export function BackOfficeOperationsClient() {
             <tbody className="divide-y divide-slate-100">
               {filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
                     <p className="text-base font-semibold text-slate-700">All caught up!</p>
                     <p className="mt-1 text-sm">No pending post-sale operations found.</p>
                   </td>
@@ -223,7 +224,9 @@ export function BackOfficeOperationsClient() {
                     <td className="px-5 py-4">
                       <p className="font-medium text-slate-900">{sale.customerName}</p>
                       <p className="text-xs text-slate-500 mt-0.5">{sale.modelName}</p>
-                      <p className="text-[10px] font-mono text-slate-400 mt-0.5 tracking-wide">CH: {sale.chassisNumber}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <p className="text-xs font-mono text-slate-700 tracking-wide">{sale.chassisNumber}</p>
                     </td>
                     <td className="px-5 py-4 text-center">
                       <StageStatus
