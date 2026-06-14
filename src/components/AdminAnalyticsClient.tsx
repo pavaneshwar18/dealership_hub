@@ -39,7 +39,7 @@ export function AdminAnalyticsClient({ initialSales }: { initialSales: any[] }) 
               : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
           }`}
         >
-          Financers Matrix
+          Financiers Matrix
         </button>
       </div>
 

@@ -195,7 +195,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `financers_matrix_${selectedPeriod.toLowerCase().replace(/[\s-]/g, '_')}.csv`);
+    link.setAttribute("download", `financiers_matrix_${selectedPeriod.toLowerCase().replace(/[\s-]/g, '_')}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -266,7 +266,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
     doc.write(`
       <html>
         <head>
-          <title>Financers Matrix Report</title>
+          <title>Financiers Matrix Report</title>
           <style>
             body {
               font-family: system-ui, -apple-system, sans-serif;
@@ -402,7 +402,7 @@ export function AdminFinancersClient({ initialSales }: AdminFinancersClientProps
         </head>
         <body>
           <div class="header">
-            <h1>Financers Matrix Report</h1>
+            <h1>Financiers Matrix Report</h1>
             <p class="meta">
               Generated on ${new Date().toLocaleDateString("en-IN", { dateStyle: "long" })}<br />
               Period: ${formatPeriodLabel(selectedPeriod)}
