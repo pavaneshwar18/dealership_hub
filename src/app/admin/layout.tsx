@@ -100,7 +100,7 @@ export default async function AdminLayout({
                 />
               </svg>
             </SidebarLink>
-            <SidebarLink href="/admin/financers" label="Financers Matrix">
+            <SidebarLink href="/admin/analytics" label="Analytics">
               <svg
                 className="h-5 w-5"
                 fill="none"

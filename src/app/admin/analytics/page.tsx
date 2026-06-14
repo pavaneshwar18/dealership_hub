@@ -1,9 +1,9 @@
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateToISTString } from "@/lib/format";
-import { AdminFinancersClient } from "@/components/AdminFinancersClient";
+import { AdminAnalyticsClient } from "@/components/AdminAnalyticsClient";
 
-export default async function AdminFinancersPage() {
+export default async function AdminAnalyticsPage() {
   await requireAdmin();
 
   // Fetch all sale reports for financial analysis
@@ -23,18 +23,20 @@ export default async function AdminFinancersPage() {
     financer: s.financer,
     paymentType: s.paymentType,
     paymentMode: s.paymentMode,
+    modelName: s.modelName,
+    modelVariant: s.modelVariant,
   }));
 
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Financers Matrix</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
         <p className="mt-2 text-slate-500">
-          Compare auto financing volume share across Bajaj dealership partners.
+          View deep analytics on branches, models, and auto financing matrices.
         </p>
       </div>
 
-      <AdminFinancersClient initialSales={formattedSales} />
+      <AdminAnalyticsClient initialSales={formattedSales} />
     </>
   );
 }
