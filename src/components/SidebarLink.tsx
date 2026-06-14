@@ -14,7 +14,7 @@ export function SidebarLink({ href, label, children }: SidebarLinkProps) {
   
   // Highlighting active link: matches exact path or subpaths (e.g. /admin/reports/123 matches /admin/reports)
   const isActive =
-    pathname === href || (href !== "/admin" && pathname.startsWith(href + "/"));
+    pathname === href || (href !== "/admin" && href !== "/backoffice" && href !== "/dashboard" && pathname.startsWith(href + "/"));
 
   return (
     <Link

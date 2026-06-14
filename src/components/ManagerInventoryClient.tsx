@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Navbar } from "@/components/Navbar";
+
 import type { SessionUser } from "@/lib/auth";
 
 type StockItem = {
@@ -107,7 +107,7 @@ export function ManagerInventoryClient({ initialStock, initialExchangeStock, use
   if (!mounted) {
     return (
       <div className="min-h-screen bg-slate-100">
-        <Navbar user={user} />
+
         <div className="flex h-96 items-center justify-center">
           <div className="text-slate-500 font-medium animate-pulse">Loading showroom inventory...</div>
         </div>
@@ -117,7 +117,7 @@ export function ManagerInventoryClient({ initialStock, initialExchangeStock, use
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <Navbar user={user} />
+
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Header section */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -159,90 +159,68 @@ export function ManagerInventoryClient({ initialStock, initialExchangeStock, use
           </button>
         </div>
 
-        {/* Showroom KPIs */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Minimal KPIs and Filter Bar */}
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {/* Filter Bar */}
           {activeTab === "new" ? (
-            <>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Showroom Units</p>
-                  <p className="mt-1 text-3xl font-bold text-slate-900">{stats.total}</p>
-                  <p className="mt-1 text-xs text-slate-400">Total vehicles available for sale on your floor</p>
-                </div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-700 font-bold text-sm">
-                  Units
-                </span>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Aging Showroom Stock (&gt;60 days)</p>
-                  <p className="mt-1 text-3xl font-bold text-rose-600">{"agingUnits" in stats ? stats.agingUnits : 0}</p>
-                  <p className="mt-1 text-xs text-slate-400">Slow-moving stock requiring sales attention</p>
-                </div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-700 font-bold text-sm">
-                  Aging
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Exchange Units</p>
-                  <p className="mt-1 text-3xl font-bold text-slate-900">{stats.total}</p>
-                  <p className="mt-1 text-xs text-slate-400">Available traded-in vehicles on your floor</p>
-                </div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-700 font-bold text-sm">
-                  Units
-                </span>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Exchange Valuation</p>
-                  <p className="mt-1 text-3xl font-bold text-emerald-600">
-                    ₹{"valuationTotal" in stats ? stats.valuationTotal?.toLocaleString("en-IN") : 0}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">Total trade-in capital on showroom floor</p>
-                </div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 font-bold text-sm">
-                  Valuation
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Filter Bar */}
-        {activeTab === "new" && (
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filter by Model</span>
+            <div className="flex flex-1 flex-col sm:flex-row gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm lg:max-w-md xl:max-w-xl">
               <select
                 value={filterModel}
                 onChange={(e) => setFilterModel(e.target.value)}
-                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2 bg-white"
+                className="w-full rounded-xl border-none bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/50"
               >
                 <option value="ALL">All Models</option>
                 {modelOptions.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-            </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Search Code / Details</span>
               <input
                 type="text"
-                placeholder="Chassis Number / Engine / Color"
+                placeholder="Search Chassis / Engine / Color"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
+                className="w-full rounded-xl border-none bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/50"
               />
-            </label>
+            </div>
+          ) : (
+            <div className="flex-1" />
+          )}
+
+          {/* Showroom KPIs */}
+          <div className="flex gap-4">
+            {activeTab === "new" ? (
+              <>
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 font-bold text-lg">
+                    {stats.total}
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Units</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 font-bold text-lg">
+                    {"agingUnits" in stats ? stats.agingUnits : 0}
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Aging Stock</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 font-bold text-lg">
+                  {stats.total}
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Units</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {activeTab === "new" ? (
           /* Stock List Table */

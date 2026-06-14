@@ -1,19 +1,7 @@
 export default function DashboardLoading() {
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* Navbar skeleton */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div>
-            <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
-            <div className="mt-2 h-5 w-36 animate-pulse rounded bg-slate-200" />
-          </div>
-          <div className="flex gap-2">
-            <div className="h-9 w-20 animate-pulse rounded-lg bg-slate-100" />
-            <div className="h-9 w-20 animate-pulse rounded-lg bg-slate-100" />
-          </div>
-        </div>
-      </header>
+    <div className="w-full">
+
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="mb-8">

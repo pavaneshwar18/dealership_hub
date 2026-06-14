@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { requireBranchManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDate, formatINR } from "@/lib/format";
@@ -19,9 +18,8 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Navbar user={session} />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="w-full">
+            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {params.saved ? (
           <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             Sale report saved successfully.

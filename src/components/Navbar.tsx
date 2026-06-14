@@ -11,17 +11,7 @@ type NavbarProps = {
 export function Navbar({ user }: NavbarProps) {
   const pathname = usePathname();
 
-  const links =
-    user.role === "ADMIN" || user.role === "BACK_OFFICE"
-      ? [] // Navigation links moved to the left sidebar for admin and backoffice layouts
-      : [
-          { href: "/dashboard", label: "Today" },
-          { href: "/dashboard/attendance", label: "Attendance" },
-          { href: "/dashboard/history", label: "History" },
-          { href: "/dashboard/sales", label: "Sales" },
-          { href: "/dashboard/inventory", label: "Stock" },
-          { href: "/dashboard/cashsheet", label: "Cash Sheet" },
-        ];
+
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -42,21 +32,6 @@ export function Navbar({ user }: NavbarProps) {
           </p>
         </div>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                pathname === link.href || pathname.startsWith(link.href + "/")
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
 
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">

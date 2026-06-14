@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Navbar } from "@/components/Navbar";
 import { requireBranchManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDate, formatINR } from "@/lib/format";
@@ -23,9 +22,8 @@ export default async function SaleDetailPage({ params }: SaleDetailPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Navbar user={session} />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="w-full">
+            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Sale Report</h1>
