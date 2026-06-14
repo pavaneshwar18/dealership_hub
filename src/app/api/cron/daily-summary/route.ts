@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Resend } from "resend";
+import { getPricingConfigRows, formatModelDisplay, VEHICLE_MODELS } from "@/lib/models";
 
 export async function GET(request: Request) {
   try {
@@ -43,23 +44,24 @@ export async function GET(request: Request) {
     // 5. Aggregate branch-wise and model-wise breakdown
     const branchBreakdown: { [branchName: string]: number } = {};
     
-    // Fetch all models to initialize them with zero
-    const vehicleConfigs = await prisma.vehiclePriceConfig.findMany({
-      select: { modelName: true },
-      distinct: ["modelName"],
-    });
-
-    const modelBreakdown: { [modelName: string]: number } = {};
-    vehicleConfigs.forEach((config) => {
-      modelBreakdown[config.modelName] = 0;
+    const pricingRows = getPricingConfigRows();
+    const modelBreakdown: { [displayName: string]: number } = {};
+    pricingRows.forEach((row) => {
+      const displayName = formatModelDisplay(row.modelName, row.modelVariant);
+      modelBreakdown[displayName] = 0;
     });
 
     sales.forEach((sale) => {
       const bName = sale.branch.name;
       branchBreakdown[bName] = (branchBreakdown[bName] || 0) + 1;
 
-      const mName = sale.modelName;
-      modelBreakdown[mName] = (modelBreakdown[mName] || 0) + 1;
+      const modelConfig = VEHICLE_MODELS.find(m => m.name === sale.modelName);
+      let displayName = sale.modelName;
+      if (modelConfig && modelConfig.variantLabel !== "Colour" && sale.modelVariant) {
+        displayName = formatModelDisplay(sale.modelName, sale.modelVariant);
+      }
+
+      modelBreakdown[displayName] = (modelBreakdown[displayName] || 0) + 1;
     });
 
     // 6. Send summary report email via Resend
@@ -133,6 +135,7 @@ export async function GET(request: Request) {
               </thead>
               <tbody>
                 ${Object.entries(modelBreakdown)
+                  .filter(([_, count]) => count > 0)
                   .map(
                     ([mName, count]) => `
                   <tr style="border-bottom: 1px solid #f1f5f9;">
@@ -143,10 +146,10 @@ export async function GET(request: Request) {
                   )
                   .join("")}
                 ${
-                  Object.keys(modelBreakdown).length === 0
+                  Object.values(modelBreakdown).every((count) => count === 0)
                     ? `
                   <tr>
-                    <td colspan="2" style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic;">No models configured or sold.</td>
+                    <td colspan="2" style="padding: 16px; text-align: center; color: #94a3b8; font-style: italic;">No models sold this month.</td>
                   </tr>
                 `
                     : ""

@@ -5,10 +5,10 @@ export type VehicleModel = {
 };
 
 export const VEHICLE_MODELS: VehicleModel[] = [
-  { name: "Compact Diesel" },
+  { name: "RE Diesel" },
   { name: "Maxima Z Diesel" },
   { name: "Maxima WB Diesel" },
-  { name: "4S LPG" },
+  { name: "RE LPG" },
   { name: "Cargo Diesel" },
   { name: "RE CNG" },
   { name: "Maxima Z (CNG)", variants: ["G.Yellow", "E.Green"], variantLabel: "Colour" },
